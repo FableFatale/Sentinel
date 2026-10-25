@@ -118,4 +118,30 @@ object UsageLogic {
         }
         hit
     }
+
+    /**
+     * Sessions overlapping weekday [dayOfWeekIso] (1=Mon..7=Sun) within the hour range
+     * [fromHour, untilHour) — used by the day-column heatmap interval selection.
+     */
+    fun sessionsInDayInterval(
+        sessions: List<ActivitySession>,
+        dayOfWeekIso: Int,
+        fromHour: Int,
+        untilHour: Int,
+        zone: java.time.ZoneId,
+    ): List<ActivitySession> = sessions.filter { s ->
+        var hit = false
+        var cursor = s.start
+        while (cursor < s.end && !hit) {
+            val zdt = java.time.Instant.ofEpochMilli(cursor).atZone(zone)
+            if (zdt.dayOfWeek.value == dayOfWeekIso && zdt.hour in fromHour until untilHour) {
+                hit = true
+            } else {
+                val hourStart = zdt.truncatedTo(java.time.temporal.ChronoUnit.HOURS)
+                    .toInstant().toEpochMilli()
+                cursor = hourStart + 3_600_000L
+            }
+        }
+        hit
+    }
 }

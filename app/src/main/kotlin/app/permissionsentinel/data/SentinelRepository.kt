@@ -48,9 +48,9 @@ class SentinelRepository(
         }
     }
 
-    suspend fun refresh(): UsageSnapshot = withContext(Dispatchers.IO) {
+    suspend fun refresh(windowDays: Int = DEFAULT_WINDOW_DAYS): UsageSnapshot = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        val from = now - QUERY_WINDOW_MS
+        val from = now - windowDays * DAY_MS
         val granted = UsageSource.isUsageAccessGranted(appContext)
         val sessions = if (granted) UsageSource.querySessions(appContext, from, now) else emptyList()
         UsageSnapshot(
@@ -66,6 +66,7 @@ class SentinelRepository(
 
     companion object {
         const val UNKNOWN_ACTOR = "(unknown)"
-        const val QUERY_WINDOW_MS: Long = 28L * 24 * 60 * 60 * 1000
+        const val DEFAULT_WINDOW_DAYS = 28
+        private const val DAY_MS = 24L * 60 * 60 * 1000
     }
 }

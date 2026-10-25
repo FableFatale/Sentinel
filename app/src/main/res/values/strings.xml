@@ -10,9 +10,9 @@
 
     <string name="heatmap_title">Activity heatmap</string>
     <string name="heatmap_window">Last %1$d days</string>
-    <string name="heatmap_legend_by_day">Activity by day</string>
-    <string name="less">Less</string>
-    <string name="more">More</string>
+    <string name="legend_affordance">Tap a cell for details</string>
+    <string name="less">Low</string>
+    <string name="more">High</string>
 
     <string name="coverage_title">Permission coverage</string>
     <string name="not_observable">Not observable</string>

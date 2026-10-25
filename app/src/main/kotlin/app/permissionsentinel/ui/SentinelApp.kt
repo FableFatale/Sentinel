@@ -168,7 +168,17 @@ fun SentinelApp(vm: SentinelViewModel) {
                 label = "screens",
             ) { current ->
                 when (current) {
-                    0 -> OverviewScreen(vm, labelFor, bottomInset)
+                    0 -> OverviewScreen(
+                        vm = vm,
+                        labelFor = labelFor,
+                        bottomInset = bottomInset,
+                        onOpenTimeline = {
+                            if (tab != 1) {
+                                Haptics.tick(context)
+                                tab = 1
+                            }
+                        },
+                    )
                     1 -> TimelineScreen(vm, labelFor, bottomInset)
                     2 -> AppsScreen(vm, labelFor, bottomInset)
                     else -> SettingsScreen(vm, bottomInset)

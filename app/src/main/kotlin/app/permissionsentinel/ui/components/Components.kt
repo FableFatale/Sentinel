@@ -10,36 +10,53 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.permissionsentinel.R
-import app.permissionsentinel.data.ActivitySession
 import app.permissionsentinel.data.HeatmapGrid
-import app.permissionsentinel.data.UsageLogic
-import app.permissionsentinel.ui.theme.heatmapColor
+import app.permissionsentinel.ui.theme.heatmapLevels
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.TextStyle as JTextStyle
+import java.util.Locale
+
+/** Time intervals (hour ranges, end exclusive) forming the heatmap rows. */
+val HeatmapDayIntervals: List<Pair<Int, Int>> = listOf(0 to 6, 6 to 12, 12 to 18, 18 to 24)
 
 @Composable
 fun SectionCard(
@@ -63,16 +80,15 @@ fun StatCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
+        shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(2.dp))
             AnimatedValueText(
                 value = value,
                 style = MaterialTheme.typography.headlineLarge,
@@ -117,142 +133,144 @@ fun Modifier.bouncyPressScale(
 }
 
 /**
- * Interactive 7x24 heatmap: rows = weekday (Mon..Sun), columns = hour (0..23).
- * Aggregated over the queried window. Tap a cell to inspect its apps.
+ * Day-column heatmap per Figma spec: 7 weekday columns x [HeatmapDayIntervals.size]
+ * time-interval rows. Tap a cell to select it (peak fill + border + check);
+ * the today column label is highlighted.
  */
 @Composable
 fun ActivityHeatmap(
     grid: HeatmapGrid,
-    windowDays: Int,
-    sessions: List<ActivitySession>,
-    selected: Pair<Int, Int>?,
+    selected: Pair<Int, Int>?, // (interval row, day column 0=Mon)
     onSelect: (Pair<Int, Int>?) -> Unit,
-    labelFor: (String) -> String,
     modifier: Modifier = Modifier,
 ) {
-    val zone = ZoneId.systemDefault()
-    val emptyColor = MaterialTheme.colorScheme.surfaceVariant
-    val accent = MaterialTheme.colorScheme.primary
-    val maxMinutes = grid.maxMinutes.coerceAtLeast(1L)
+    val zone = remember { ZoneId.systemDefault() }
+    val todayIso = remember(zone) { LocalDate.now(zone).dayOfWeek.value }
+    val levels = heatmapLevels(isDarkThemeLocal())
+    val maxMinutes = remember(grid) {
+        var max = 1L
+        for (day in 0..6) {
+            for ((from, until) in HeatmapDayIntervals) {
+                var sum = 0L
+                for (hour in from until until) sum += grid[day, hour]
+                if (sum > max) max = sum
+            }
+        }
+        max
+    }
+    val cellShape = RoundedCornerShape(4.dp)
+    val selectionBorder = MaterialTheme.colorScheme.onBackground
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        Canvas(
-            Modifier
-                .fillMaxWidth()
-                .height(112.dp)
-                .pointerInput(grid, selected) {
-                    detectTapGestures { pos ->
-                        val cellW = size.width / 24f
-                        val cellH = size.height / 7f
-                        val col = (pos.x / cellW).toInt().coerceIn(0, 23)
-                        val row = (pos.y / cellH).toInt().coerceIn(0, 6)
-                        onSelect(if (selected == row to col) null else row to col)
-                    }
-                }
-        ) {
-            val gap = 2.dp.toPx()
-            val cellW = (size.width - gap * 23) / 24f
-            val cellH = (size.height - gap * 6) / 7f
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Day label header; leading gutter aligns with time labels below.
+        Row(Modifier.fillMaxWidth().height(16.dp)) {
+            Spacer(Modifier.width(44.dp))
             for (day in 0..6) {
-                for (hour in 0..23) {
-                    val minutes = grid[day, hour]
-                    val fraction = minutes.toFloat() / maxMinutes
-                    val color = if (minutes <= 0L) emptyColor else heatmapColor(emptyColor, accent, fraction)
-                    val isSel = selected == day to hour
-                    drawRoundRect(
-                        color = color,
-                        topLeft = Offset(hour * (cellW + gap), day * (cellH + gap)),
-                        size = Size(cellW, cellH),
-                        cornerRadius = CornerRadius(if (isSel) 0.dp.toPx() else 2.dp.toPx()),
-                        alpha = if (isSel) 1f else 1f,
-                    )
-                    if (isSel) {
-                        drawRoundRect(
-                            color = accent,
-                            topLeft = Offset(hour * (cellW + gap) - 1.dp.toPx(), day * (cellH + gap) - 1.dp.toPx()),
-                            size = Size(cellW + 2.dp.toPx(), cellH + 2.dp.toPx()),
-                            cornerRadius = CornerRadius(3.dp.toPx()),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx()),
-                        )
+                val isToday = day + 1 == todayIso
+                Text(
+                    text = DayOfWeek.of(day + 1)
+                        .getDisplayName(JTextStyle.NARROW, Locale.getDefault()),
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = if (isToday) androidx.compose.ui.text.font.FontWeight.SemiBold
+                    else androidx.compose.ui.text.font.FontWeight.Normal,
+                    color = if (isToday) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        for ((row, interval) in HeatmapDayIntervals.withIndex()) {
+            val (from, until) = interval
+            val rowSelected = selected?.first == row
+            Row(
+                Modifier.fillMaxWidth().height(32.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "$from–$until",
+                    modifier = Modifier.width(44.dp),
+                    fontSize = 10.sp,
+                    lineHeight = 16.sp,
+                    color = if (rowSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                for (day in 0..6) {
+                    var minutes = 0L
+                    for (hour in from until until) minutes += grid[day, hour]
+                    val isSelected = selected == row to day
+                    val level = if (minutes <= 0L) 0
+                    else (1 + ((minutes.toFloat() / maxMinutes) * 3.99f).toInt()).coerceIn(1, 4)
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(cellShape)
+                            .background(levels[level])
+                            .then(
+                                if (isSelected) Modifier.border(2.dp, selectionBorder, cellShape)
+                                else Modifier
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                onSelect(if (isSelected) null else row to day)
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Outlined.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = androidx.compose.ui.graphics.Color.White,
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
 
-        androidx.compose.foundation.layout.Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.heatmap_legend_by_day),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.weight(1f))
+/** Five-swatch intensity legend: Low ▢▢▢▢▢ High. */
+@Composable
+fun HeatmapLegend(modifier: Modifier = Modifier) {
+    val levels = heatmapLevels(isDarkThemeLocal())
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(
+            text = stringResource(R.string.legend_affordance),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = stringResource(R.string.less),
-                style = MaterialTheme.typography.bodySmall,
+                fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.width(6.dp))
-            LegendSwatch(0f)
-            LegendSwatch(0.4f)
-            LegendSwatch(0.7f)
-            LegendSwatch(1f)
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(3.dp))
+            for (level in levels) {
+                Box(
+                    Modifier
+                        .size(9.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(level),
+                )
+                Spacer(Modifier.width(3.dp))
+            }
             Text(
                 text = stringResource(R.string.more),
-                style = MaterialTheme.typography.bodySmall,
+                fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-
-        selected?.let { (day, hour) ->
-            val isoDay = day + 1
-            val bucketSessions = UsageLogic.sessionsInBucket(sessions, isoDay, hour, zone)
-            val totalMin = UsageLogic.minutesBetween(bucketSessions, 0, Long.MAX_VALUE)
-            Spacer(Modifier.height(10.dp))
-            val topApps = bucketSessions
-                .groupBy { it.packageName }
-                .map { (pkg, list) -> pkg to UsageLogic.minutesBetween(list, 0, Long.MAX_VALUE) }
-                .sortedByDescending { it.second }
-                .take(3)
-            val dayName = java.time.DayOfWeek.of(isoDay)
-                .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
-            Text(
-                text = "$dayName %02d:00 – %02d:00 · %d min".format(hour, (hour + 1) % 24, totalMin),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            for ((pkg, minutes) in topApps) {
-                Text(
-                    text = "· ${labelFor(pkg)} · $minutes min",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (topApps.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.no_usage_data),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
 
 @Composable
-private fun LegendSwatch(fraction: Float) {
-    val emptyColor = MaterialTheme.colorScheme.surfaceVariant
-    val accent = MaterialTheme.colorScheme.primary
-    Canvas(Modifier.width(14.dp).height(14.dp)) {
-        drawRoundRect(
-            color = heatmapColor(emptyColor, accent, fraction),
-            topLeft = Offset.Zero,
-            size = Size(size.width, size.height),
-            cornerRadius = CornerRadius(2.dp.toPx()),
-        )
-    }
-}
+private fun isDarkThemeLocal(): Boolean =
+    MaterialTheme.colorScheme.background.luminance() < 0.5f

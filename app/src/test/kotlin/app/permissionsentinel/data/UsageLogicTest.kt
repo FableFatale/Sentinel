@@ -114,4 +114,33 @@ class UsageLogicTest {
         assertEquals(listOf("com.b"), UsageLogic.sessionsInBucket(sessions, 7, 15, zone).map { it.packageName })
         assertTrue(UsageLogic.sessionsInBucket(sessions, 7, 12, zone).isEmpty())
     }
+
+    @Test
+    fun `sessionsInDayInterval matches weekday and hour range`() {
+        // 2026-10-25 is a Sunday (iso 7)
+        val sessions = listOf(
+            ActivitySession("com.a", at("2026-10-25", "13:50:00"), at("2026-10-25", "14:10:00")),
+            ActivitySession("com.b", at("2026-10-25", "09:00:00"), at("2026-10-25", "09:20:00")),
+            ActivitySession("com.c", at("2026-10-24", "13:50:00"), at("2026-10-24", "14:10:00")),
+        )
+        assertEquals(
+            listOf("com.a"),
+            UsageLogic.sessionsInDayInterval(sessions, 7, 12, 18, zone).map { it.packageName },
+        )
+        assertEquals(
+            listOf("com.b"),
+            UsageLogic.sessionsInDayInterval(sessions, 7, 6, 12, zone).map { it.packageName },
+        )
+        // Saturday column picks up the Saturday session only
+        assertEquals(
+            listOf("com.c"),
+            UsageLogic.sessionsInDayInterval(sessions, 6, 12, 18, zone).map { it.packageName },
+        )
+        // Session starting exactly at the range start counts; end is exclusive
+        val edge = listOf(
+            ActivitySession("com.d", at("2026-10-25", "18:00:00"), at("2026-10-25", "18:30:00")),
+        )
+        assertEquals(1, UsageLogic.sessionsInDayInterval(edge, 7, 18, 24, zone).size)
+        assertTrue(UsageLogic.sessionsInDayInterval(edge, 7, 12, 18, zone).isEmpty())
+    }
 }

@@ -79,13 +79,23 @@ class SentinelViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refresh(initial: Boolean = false) {
+        refreshWindow(
+            days = _ui.value.windowDays.takeIf { it > 0 }
+                ?: SentinelRepository.DEFAULT_WINDOW_DAYS,
+            initial = initial,
+        )
+    }
+
+    /** Switches the heatmap query window (7/14/28 days) and reloads. */
+    fun setWindowDays(days: Int) = refreshWindow(days, initial = false)
+
+    private fun refreshWindow(days: Int, initial: Boolean) {
         viewModelScope.launch {
             _ui.update {
                 it.copy(loading = initial && it.loading, refreshing = !initial)
             }
-            val snapshot = repo.refresh()
+            val snapshot = repo.refresh(days)
             val apps = PackageSource.loadSensitiveApps(getApplication())
-            val days = ((snapshot.to - snapshot.from) / DAY_MS).toInt()
             _ui.update {
                 it.copy(
                     loading = false,
@@ -114,9 +124,5 @@ class SentinelViewModel(application: Application) : AndroidViewModel(application
 
     fun clearRecords() {
         viewModelScope.launch { repo.clearRecords() }
-    }
-
-    private companion object {
-        const val DAY_MS = 24L * 60 * 60 * 1000
     }
 }

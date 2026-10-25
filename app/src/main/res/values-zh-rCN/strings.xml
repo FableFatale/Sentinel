@@ -10,7 +10,7 @@
 
     <string name="heatmap_title">活动热力图</string>
     <string name="heatmap_window">近 %1$d 天</string>
-    <string name="heatmap_legend_by_day">按天与小时活动</string>
+    <string name="legend_affordance">点击格子查看详情</string>
     <string name="less">少</string>
     <string name="more">多</string>
 

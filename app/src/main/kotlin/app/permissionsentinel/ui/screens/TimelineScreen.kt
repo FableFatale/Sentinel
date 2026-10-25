@@ -58,7 +58,7 @@ fun TimelineScreen(vm: SentinelViewModel, labelFor: (String) -> String, bottomIn
         Spacer(Modifier.height(14.dp))
 
         if (!state.usageGranted) {
-            AccessBanner()
+            AccessWarningBanner()
             Spacer(Modifier.height(12.dp))
         }
 
