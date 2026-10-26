@@ -1,22 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">权限哨兵</string>
+    <string name="refresh">刷新</string>
 
-    <string name="title_overview">当前敏感活动</string>
+    <string name="title_overview">总览</string>
     <string name="banner_access">系统访问未开启</string>
     <string name="open_settings">去开启</string>
-    <string name="stat_records">记录</string>
-    <string name="stat_apps">应用</string>
+    <string name="source_standard_available">标准模式 · 使用情况可用</string>
+    <string name="source_standard_unavailable">标准模式 · 使用情况未开启</string>
+    <string name="updated_at">更新于 %1$s</string>
+    <string name="stat_today_activity">今天</string>
+    <string name="stat_today_activity_support">来自系统使用情况事件的前台会话</string>
+    <string name="session_count_value">%1$s 次</string>
+    <string name="stat_apps">敏感权限应用</string>
+    <string name="stat_apps_support">已安装、可启动且声明敏感权限</string>
+    <string name="app_count_value">%1$s 个</string>
 
-    <string name="heatmap_title">活动热力图</string>
+    <string name="heatmap_title">前台活动分布</string>
     <string name="heatmap_window">近 %1$d 天</string>
-    <string name="legend_affordance">点击格子查看详情</string>
+    <string name="heatmap_window_total">近 %1$d 天 · 累计</string>
+    <string name="heatmap_hour_range">%1$d–%2$d 时</string>
+    <string name="heatmap_cell_content">%1$s，%2$d 至 %3$d 时，累计 %4$d 分钟</string>
+    <string name="heatmap_peak_summary">高峰：%1$s %2$d:00–%3$d:00 · 累计 %4$d 分钟</string>
+    <string name="legend_affordance">格内为累计分钟</string>
     <string name="less">少</string>
     <string name="more">多</string>
 
-    <string name="coverage_title">权限覆盖</string>
+    <string name="coverage_title">敏感权限声明</string>
+    <string name="coverage_count_ratio">%1$d 个应用 · %2$d%%</string>
     <string name="not_observable">不可观测</string>
     <string name="clipboard_motion">剪贴板 · 传感器</string>
+    <string name="monitoring_limit_title">剪贴板与运动传感器未被监测</string>
+    <string name="monitoring_limit_body">Android 限制了标准模式；这不代表没有发生访问。进入「数据源」可查看当前采集边界。</string>
     <string name="now_foreground">当前前台</string>
     <string name="now_camera_busy">相机使用中</string>
     <string name="now_camera_idle">相机空闲</string>
@@ -32,22 +47,45 @@
     <string name="tab_settings">设置</string>
 
     <string name="timeline_title">时间线</string>
+    <string name="timeline_source">前台会话 · 系统事件时间 · 最新优先</string>
+    <string name="timeline_record_count">%1$d 条记录</string>
+    <string name="search_records">搜索记录</string>
+    <string name="filter">筛选</string>
+    <string name="all_apps">全部应用</string>
+    <string name="sensitive_apps_only">仅敏感权限应用</string>
     <string name="day_today">今天</string>
     <string name="day_yesterday">昨天</string>
+    <string name="range_seven_days">7 天</string>
     <string name="empty_timeline">该日暂无记录</string>
+    <string name="foreground_context">前台使用记录</string>
+    <string name="source_usage_stats">UsageStats</string>
+    <string name="unavailable_observation_note">标准模式无法观测剪贴板与传感器活动。</string>
+    <string name="sources_action">数据源</string>
     <string name="no_usage_data">暂无数据</string>
     <string name="minutes_val">%1$d 分钟</string>
     <string name="minutes_lt1">&lt;1 分钟</string>
+    <string name="duration_seconds">%1$d 秒</string>
+    <string name="duration_minutes_seconds">%1$d 分 %2$d 秒</string>
+    <string name="duration_hours_minutes_seconds">%1$d 小时 %2$d 分 %3$d 秒</string>
 
     <string name="apps_title">应用</string>
     <string name="apps_count">%1$d 个应用声明了敏感权限</string>
+    <string name="apps_visible_count">%1$d 个应用</string>
     <string name="search_hint">搜索应用</string>
     <string name="filter_all">全部</string>
+    <string name="user_apps">用户应用</string>
+    <string name="system_apps">系统应用</string>
+    <string name="app_inventory">应用清单</string>
     <string name="empty_apps">没有匹配的应用</string>
     <string name="declares_caps">声明的权限</string>
+    <string name="permission_declared">已声明</string>
+    <string name="permission_not_granted">未授予</string>
     <string name="minutes_today">今日 %1$d 分钟</string>
 
     <string name="settings_title">设置</string>
+    <string name="settings_appearance">外观</string>
+    <string name="settings_access">访问权限</string>
+    <string name="settings_collection">采集</string>
     <string name="usage_access_title">使用情况访问</string>
     <string name="status_granted">已开启</string>
     <string name="status_not_granted">未开启</string>
@@ -57,12 +95,26 @@
     <string name="theme_dark">深色</string>
     <string name="language_title">语言</string>
     <string name="language_system">跟随系统</string>
+    <string name="collection_mode">采集模式</string>
+    <string name="collection_mode_standard">标准模式</string>
+    <string name="observation_limits">观测限制</string>
+    <string name="observation_limits_value">查看</string>
+    <string name="observation_limits_title">标准模式边界</string>
+    <string name="observation_limits_body">此版本不采集剪贴板和运动传感器访问。ADB 或 Shizuku 在部分设备上可提供额外系统快照，但本版本尚未启用这些采集器。</string>
+    <string name="haptic_feedback">震动反馈</string>
     <string name="data_title">本地数据</string>
+    <string name="stored_records">本地相机观测</string>
+    <string name="export_metadata">导出元数据</string>
+    <string name="export_file_name">permission-sentinel-metadata.json</string>
+    <string name="export_succeeded">元数据已导出</string>
+    <string name="export_failed">无法导出元数据</string>
     <string name="records_count">本地存储 %1$d 条记录</string>
     <string name="clear_records">清除记录</string>
     <string name="clear_confirm_title">清除观测记录？</string>
     <string name="clear_confirm_text">本地存储的相机观测记录将被删除，且无法恢复。</string>
     <string name="confirm">清除</string>
+    <string name="confirm_read">知道了</string>
     <string name="cancel">取消</string>
     <string name="privacy_note">本地优先：数据不出设备。不采集音频、照片、联系人或精确位置。相机使用检测仅在哨兵运行时实时可用；无特权访问时，无法回溯观测其他应用的相机与麦克风历史。</string>
+    <string name="privacy_note_short">记录仅保存在本机。不采集音频、照片、联系人、剪贴板内容或传感器样本。</string>
 </resources>

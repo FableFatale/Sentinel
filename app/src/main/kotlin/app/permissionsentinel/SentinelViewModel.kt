@@ -9,6 +9,7 @@ import app.permissionsentinel.data.AppInfo
 import app.permissionsentinel.data.CapabilityCoverage
 import app.permissionsentinel.data.HeatmapGrid
 import app.permissionsentinel.data.PackageSource
+import app.permissionsentinel.data.SentinelRecord
 import app.permissionsentinel.data.SentinelRepository
 import app.permissionsentinel.data.UsageLogic
 import app.permissionsentinel.data.UsageSource
@@ -33,9 +34,11 @@ data class UiState(
     val sensitiveApps: List<AppInfo> = emptyList(),
     val coverage: List<CapabilityCoverage> = emptyList(),
     val recordCount: Int = 0,
+    val records: List<SentinelRecord> = emptyList(),
     val cameraBusy: Boolean = false,
     val foregroundPackage: String? = null,
     val foregroundLabel: String? = null,
+    val lastRefreshedAt: Long = 0,
 )
 
 class SentinelViewModel(application: Application) : AndroidViewModel(application) {
@@ -54,7 +57,7 @@ class SentinelViewModel(application: Application) : AndroidViewModel(application
         }
         viewModelScope.launch {
             repo.recordStore.records.collect { records ->
-                _ui.update { it.copy(recordCount = records.size) }
+                _ui.update { it.copy(recordCount = records.size, records = records) }
             }
         }
         viewModelScope.launch {
@@ -86,7 +89,7 @@ class SentinelViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    /** Switches the heatmap query window (7/14/28 days) and reloads. */
+    /** Switches the heatmap query window (7/14/30 days) and reloads. */
     fun setWindowDays(days: Int) = refreshWindow(days, initial = false)
 
     private fun refreshWindow(days: Int, initial: Boolean) {
@@ -108,6 +111,7 @@ class SentinelViewModel(application: Application) : AndroidViewModel(application
                     windowDays = days,
                     sensitiveApps = apps,
                     coverage = PackageSource.coverage(apps),
+                    lastRefreshedAt = System.currentTimeMillis(),
                 )
             }
             pollForegroundOnce()
@@ -120,6 +124,10 @@ class SentinelViewModel(application: Application) : AndroidViewModel(application
 
     fun setLanguageTag(tag: String) {
         viewModelScope.launch { repo.settingsStore.setLanguageTag(tag) }
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repo.settingsStore.setHapticsEnabled(enabled) }
     }
 
     fun clearRecords() {

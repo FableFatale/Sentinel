@@ -11,3 +11,4 @@ captures/
 
 # Large debug artifact — rebuild with `./gradlew assembleDebug`
 outputs/permission-sentinel-debug.apk
+outputs/permission-sentinel-final-debug.apk

@@ -1,22 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Permission Sentinel</string>
+    <string name="refresh">Refresh</string>
 
-    <string name="title_overview">Current sensitive activity</string>
+    <string name="title_overview">Overview</string>
     <string name="banner_access">System access not enabled</string>
     <string name="open_settings">Open settings</string>
-    <string name="stat_records">Records</string>
-    <string name="stat_apps">Apps</string>
+    <string name="source_standard_available">Standard · usage data available</string>
+    <string name="source_standard_unavailable">Standard · usage access off</string>
+    <string name="updated_at">Updated %1$s</string>
+    <string name="stat_today_activity">Today</string>
+    <string name="stat_today_activity_support">Foreground sessions from system usage events</string>
+    <string name="session_count_value">%1$s sessions</string>
+    <string name="stat_apps">Sensitive-permission apps</string>
+    <string name="stat_apps_support">Installed launchable apps that declare one</string>
+    <string name="app_count_value">%1$s apps</string>
 
-    <string name="heatmap_title">Activity heatmap</string>
+    <string name="heatmap_title">Foreground activity</string>
     <string name="heatmap_window">Last %1$d days</string>
-    <string name="legend_affordance">Tap a cell for details</string>
+    <string name="heatmap_window_total">Last %1$d days · total</string>
+    <string name="heatmap_hour_range">%1$d–%2$d h</string>
+    <string name="heatmap_cell_content">%1$s, %2$d to %3$d hours, %4$d cumulative minutes</string>
+    <string name="heatmap_peak_summary">Peak: %1$s %2$d:00–%3$d:00 · %4$d cumulative min</string>
+    <string name="legend_affordance">Cells show cumulative minutes</string>
     <string name="less">Low</string>
     <string name="more">High</string>
 
-    <string name="coverage_title">Permission coverage</string>
+    <string name="coverage_title">Sensitive permission declarations</string>
+    <string name="coverage_count_ratio">%1$d apps · %2$d%%</string>
     <string name="not_observable">Not observable</string>
     <string name="clipboard_motion">Clipboard · Motion</string>
+    <string name="monitoring_limit_title">Clipboard and motion are not monitored</string>
+    <string name="monitoring_limit_body">Android limits Standard mode. This does not mean no access occurred. Open Sources for the current collection boundary.</string>
     <string name="now_foreground">Foreground now</string>
     <string name="now_camera_busy">Camera in use</string>
     <string name="now_camera_idle">Camera idle</string>
@@ -32,22 +47,45 @@
     <string name="tab_settings">Settings</string>
 
     <string name="timeline_title">Timeline</string>
+    <string name="timeline_source">Foreground sessions · system event time · newest first</string>
+    <string name="timeline_record_count">%1$d records</string>
+    <string name="search_records">Search records</string>
+    <string name="filter">Filter</string>
+    <string name="all_apps">All apps</string>
+    <string name="sensitive_apps_only">Sensitive apps only</string>
     <string name="day_today">Today</string>
     <string name="day_yesterday">Yesterday</string>
+    <string name="range_seven_days">7 days</string>
     <string name="empty_timeline">Nothing recorded for this day</string>
+    <string name="foreground_context">Foreground context</string>
+    <string name="source_usage_stats">UsageStats</string>
+    <string name="unavailable_observation_note">Clipboard and motion activity cannot be observed in Standard mode.</string>
+    <string name="sources_action">Sources</string>
     <string name="no_usage_data">No data yet</string>
     <string name="minutes_val">%1$d min</string>
     <string name="minutes_lt1">&lt;1 min</string>
+    <string name="duration_seconds">%1$d sec</string>
+    <string name="duration_minutes_seconds">%1$d min %2$d sec</string>
+    <string name="duration_hours_minutes_seconds">%1$d hr %2$d min %3$d sec</string>
 
     <string name="apps_title">Apps</string>
     <string name="apps_count">%1$d apps request sensitive permissions</string>
+    <string name="apps_visible_count">%1$d apps</string>
     <string name="search_hint">Search apps</string>
     <string name="filter_all">All</string>
+    <string name="user_apps">User apps</string>
+    <string name="system_apps">System apps</string>
+    <string name="app_inventory">App inventory</string>
     <string name="empty_apps">No matching apps</string>
     <string name="declares_caps">Declares</string>
+    <string name="permission_declared">Declared</string>
+    <string name="permission_not_granted">Not granted</string>
     <string name="minutes_today">%1$d min today</string>
 
     <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_access">Access</string>
+    <string name="settings_collection">Collection</string>
     <string name="usage_access_title">Usage access</string>
     <string name="status_granted">Granted</string>
     <string name="status_not_granted">Not enabled</string>
@@ -57,12 +95,26 @@
     <string name="theme_dark">Dark</string>
     <string name="language_title">Language</string>
     <string name="language_system">System default</string>
+    <string name="collection_mode">Collection mode</string>
+    <string name="collection_mode_standard">Standard</string>
+    <string name="observation_limits">Observation limits</string>
+    <string name="observation_limits_value">View</string>
+    <string name="observation_limits_title">Standard mode boundary</string>
+    <string name="observation_limits_body">Clipboard and motion-sensor access are not collected in this build. ADB or Shizuku may expose extra system snapshots on supported devices, but those collectors are not enabled here.</string>
+    <string name="haptic_feedback">Haptic feedback</string>
     <string name="data_title">Local data</string>
+    <string name="stored_records">Local camera observations</string>
+    <string name="export_metadata">Export metadata</string>
+    <string name="export_file_name">permission-sentinel-metadata.json</string>
+    <string name="export_succeeded">Metadata exported</string>
+    <string name="export_failed">Could not export metadata</string>
     <string name="records_count">%1$d records stored locally</string>
     <string name="clear_records">Clear records</string>
     <string name="clear_confirm_title">Clear observation records?</string>
     <string name="clear_confirm_text">Locally stored camera-watch records will be deleted. This cannot be undone.</string>
     <string name="confirm">Clear</string>
+    <string name="confirm_read">Got it</string>
     <string name="cancel">Cancel</string>
     <string name="privacy_note">Local-first: data never leaves this device. No audio, photos, contacts or precise location are collected. Camera-in-use detection is live-only while Sentinel runs; historical cross-app camera and microphone use is not observable without privileged access.</string>
+    <string name="privacy_note_short">Records stay on this device. No audio, photos, contacts, clipboard contents, or sensor samples are collected.</string>
 </resources>

@@ -43,6 +43,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,6 +79,7 @@ fun SectionCard(
 fun StatCard(
     label: String,
     value: String,
+    support: String,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -93,6 +97,12 @@ fun StatCard(
                 value = value,
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = support,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
             )
         }
     }
@@ -134,8 +144,8 @@ fun Modifier.bouncyPressScale(
 
 /**
  * Day-column heatmap per Figma spec: 7 weekday columns x [HeatmapDayIntervals.size]
- * time-interval rows. Tap a cell to select it (peak fill + border + check);
- * the today column label is highlighted.
+ * time-interval rows. Cells show cumulative minutes so intensity is not
+ * communicated by color alone.
  */
 @Composable
 fun ActivityHeatmap(
@@ -144,8 +154,6 @@ fun ActivityHeatmap(
     onSelect: (Pair<Int, Int>?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val zone = remember { ZoneId.systemDefault() }
-    val todayIso = remember(zone) { LocalDate.now(zone).dayOfWeek.value }
     val levels = heatmapLevels(isDarkThemeLocal())
     val maxMinutes = remember(grid) {
         var max = 1L
@@ -166,7 +174,6 @@ fun ActivityHeatmap(
         Row(Modifier.fillMaxWidth().height(16.dp)) {
             Spacer(Modifier.width(44.dp))
             for (day in 0..6) {
-                val isToday = day + 1 == todayIso
                 Text(
                     text = DayOfWeek.of(day + 1)
                         .getDisplayName(JTextStyle.NARROW, Locale.getDefault()),
@@ -174,10 +181,8 @@ fun ActivityHeatmap(
                     textAlign = TextAlign.Center,
                     fontSize = 11.sp,
                     lineHeight = 16.sp,
-                    fontWeight = if (isToday) androidx.compose.ui.text.font.FontWeight.SemiBold
-                    else androidx.compose.ui.text.font.FontWeight.Normal,
-                    color = if (isToday) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -190,7 +195,7 @@ fun ActivityHeatmap(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "$from–$until",
+                    text = stringResource(R.string.heatmap_hour_range, from, until),
                     modifier = Modifier.width(44.dp),
                     fontSize = 10.sp,
                     lineHeight = 16.sp,
@@ -203,6 +208,15 @@ fun ActivityHeatmap(
                     val isSelected = selected == row to day
                     val level = if (minutes <= 0L) 0
                     else (1 + ((minutes.toFloat() / maxMinutes) * 3.99f).toInt()).coerceIn(1, 4)
+                    val dayName = DayOfWeek.of(day + 1)
+                        .getDisplayName(JTextStyle.FULL, Locale.getDefault())
+                    val cellDescription = stringResource(
+                        R.string.heatmap_cell_content,
+                        dayName,
+                        from,
+                        until,
+                        minutes,
+                    )
                     Box(
                         Modifier
                             .weight(1f)
@@ -211,8 +225,13 @@ fun ActivityHeatmap(
                             .background(levels[level])
                             .then(
                                 if (isSelected) Modifier.border(2.dp, selectionBorder, cellShape)
-                                else Modifier
+                                else Modifier.border(
+                                    0.7.dp,
+                                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f),
+                                    cellShape,
+                                )
                             )
+                            .semantics { contentDescription = cellDescription }
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -221,14 +240,17 @@ fun ActivityHeatmap(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Outlined.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = androidx.compose.ui.graphics.Color.White,
-                            )
-                        }
+                        Text(
+                            text = minutes.toString(),
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = when {
+                                level >= 3 -> androidx.compose.ui.graphics.Color.White
+                                else -> MaterialTheme.colorScheme.onBackground
+                            },
+                            maxLines = 1,
+                        )
                     }
                 }
             }

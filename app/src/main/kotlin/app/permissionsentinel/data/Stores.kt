@@ -2,6 +2,7 @@ package app.permissionsentinel.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -38,6 +39,7 @@ data class AppSettings(
     val themeMode: Int = 0,
     /** "" = system, "en", "zh-CN" */
     val languageTag: String = "",
+    val hapticsEnabled: Boolean = true,
 )
 
 class SettingsStore(private val context: Context) {
@@ -46,6 +48,7 @@ class SettingsStore(private val context: Context) {
         AppSettings(
             themeMode = prefs[KEY_THEME] ?: 0,
             languageTag = prefs[KEY_LANG] ?: "",
+            hapticsEnabled = prefs[KEY_HAPTICS] ?: true,
         )
     }
 
@@ -57,8 +60,13 @@ class SettingsStore(private val context: Context) {
         context.sentinelDataStore.edit { it[KEY_LANG] = tag }
     }
 
+    suspend fun setHapticsEnabled(enabled: Boolean) {
+        context.sentinelDataStore.edit { it[KEY_HAPTICS] = enabled }
+    }
+
     private companion object {
         val KEY_THEME = intPreferencesKey("theme_mode")
         val KEY_LANG = stringPreferencesKey("language_tag")
+        val KEY_HAPTICS = booleanPreferencesKey("haptics_enabled")
     }
 }

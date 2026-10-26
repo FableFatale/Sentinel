@@ -6,6 +6,12 @@ package app.permissionsentinel.data
  */
 object UsageLogic {
 
+    data class HeatmapPeak(
+        val dayIndex: Int,
+        val intervalIndex: Int,
+        val minutes: Long,
+    )
+
     /** Raw event as read from UsageStatsManager before pairing. */
     data class RawEvent(
         val packageName: String,
@@ -88,6 +94,18 @@ object UsageLogic {
         return minutesBetween(sessions, dayStart, dayEnd)
     }
 
+    /** Foreground sessions that overlap the calendar day of [now] in [zone]. */
+    fun sessionsToday(
+        sessions: List<ActivitySession>,
+        now: Long,
+        zone: java.time.ZoneId,
+    ): List<ActivitySession> {
+        val today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return sessions.filter { it.end > dayStart && it.start < dayEnd }
+    }
+
     fun minutesBetween(sessions: List<ActivitySession>, from: Long, to: Long): Long {
         var ms = 0L
         for (s in sessions) {
@@ -96,6 +114,26 @@ object UsageLogic {
             if (end > start) ms += end - start
         }
         return ms / 60_000L
+    }
+
+    /** Finds the highest cumulative weekday interval in a heatmap. */
+    fun peakDayInterval(
+        grid: HeatmapGrid,
+        intervals: List<Pair<Int, Int>>,
+    ): HeatmapPeak? {
+        var peak: HeatmapPeak? = null
+        for (day in 0..6) {
+            for ((intervalIndex, interval) in intervals.withIndex()) {
+                var minutes = 0L
+                for (hour in interval.first until interval.second) {
+                    minutes += grid[day, hour]
+                }
+                if (minutes > (peak?.minutes ?: 0L)) {
+                    peak = HeatmapPeak(day, intervalIndex, minutes)
+                }
+            }
+        }
+        return peak?.takeIf { it.minutes > 0L }
     }
 
     /** Sessions overlapping a given day-of-week+hour bucket (for heatmap tap details). */

@@ -1,6 +1,7 @@
 package app.permissionsentinel
 
 import android.os.Bundle
+import android.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -33,7 +34,7 @@ class MainActivity : ComponentActivity() {
                 else -> isSystemInDarkTheme()
             }
             LaunchedEffect(Unit) { splashKeep.value = false }
-            SideEffectStatusBar(!dark)
+            SystemBarAppearance(light = !dark)
             SentinelTheme(themeMode = settings.themeMode) {
                 SentinelApp(vm)
             }
@@ -41,10 +42,15 @@ class MainActivity : ComponentActivity() {
     }
 
     @androidx.compose.runtime.Composable
-    private fun SideEffectStatusBar(lightIcons: Boolean) {
+    private fun SystemBarAppearance(light: Boolean) {
         androidx.compose.runtime.SideEffect {
-            WindowCompat.getInsetsController(window, window.decorView)
-                .isAppearanceLightStatusBars = lightIcons
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+            window.isNavigationBarContrastEnforced = false
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                isAppearanceLightStatusBars = light
+                isAppearanceLightNavigationBars = light
+            }
         }
     }
 }

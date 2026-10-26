@@ -105,6 +105,22 @@ class UsageLogicTest {
     }
 
     @Test
+    fun `sessions today includes every session overlapping today`() {
+        val now = at("2026-10-25", "12:00:00")
+        val sessions = listOf(
+            ActivitySession("before", at("2026-10-24", "22:00:00"), at("2026-10-24", "23:00:00")),
+            ActivitySession("crossing", at("2026-10-24", "23:50:00"), at("2026-10-25", "00:10:00")),
+            ActivitySession("today", at("2026-10-25", "08:00:00"), at("2026-10-25", "08:30:00")),
+            ActivitySession("after", at("2026-10-26", "00:00:00"), at("2026-10-26", "00:30:00")),
+        )
+
+        assertEquals(
+            listOf("crossing", "today"),
+            UsageLogic.sessionsToday(sessions, now, zone).map { it.packageName },
+        )
+    }
+
+    @Test
     fun `sessionsInBucket matches only the overlapping hour`() {
         val sessions = listOf(
             ActivitySession("com.a", at("2026-10-25", "13:50:00"), at("2026-10-25", "14:10:00")),
@@ -142,5 +158,31 @@ class UsageLogicTest {
         )
         assertEquals(1, UsageLogic.sessionsInDayInterval(edge, 7, 18, 24, zone).size)
         assertTrue(UsageLogic.sessionsInDayInterval(edge, 7, 12, 18, zone).isEmpty())
+    }
+
+    @Test
+    fun `peak day interval returns the largest cumulative bucket`() {
+        val minutes = Array(7) { LongArray(24) }
+        minutes[3][18] = 30
+        minutes[3][19] = 45
+        minutes[5][8] = 60
+        val peak = UsageLogic.peakDayInterval(
+            HeatmapGrid(minutes),
+            listOf(0 to 6, 6 to 12, 12 to 18, 18 to 24),
+        )
+
+        assertEquals(3, peak?.dayIndex)
+        assertEquals(3, peak?.intervalIndex)
+        assertEquals(75L, peak?.minutes)
+    }
+
+    @Test
+    fun `peak day interval is absent for an empty grid`() {
+        val peak = UsageLogic.peakDayInterval(
+            HeatmapGrid(Array(7) { LongArray(24) }),
+            listOf(0 to 6, 6 to 12, 12 to 18, 18 to 24),
+        )
+
+        assertEquals(null, peak)
     }
 }

@@ -4,8 +4,6 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,11 +27,14 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
@@ -64,11 +64,14 @@ import app.permissionsentinel.data.UsageLogic
 import app.permissionsentinel.ui.components.ActivityHeatmap
 import app.permissionsentinel.ui.components.HeatmapDayIntervals
 import app.permissionsentinel.ui.components.HeatmapLegend
+import app.permissionsentinel.ui.components.SourceBadge
 import app.permissionsentinel.ui.components.StatCard
-import app.permissionsentinel.ui.theme.detailBarColor
+import app.permissionsentinel.ui.components.glassSurface
 import app.permissionsentinel.ui.theme.warningColor
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -76,13 +79,17 @@ import java.util.Locale
 @Composable
 fun OverviewScreen(
     vm: SentinelViewModel,
-    labelFor: (String) -> String,
     bottomInset: androidx.compose.ui.unit.Dp,
     onOpenTimeline: () -> Unit,
+    onOpenApps: (Capability) -> Unit,
+    onOpenSources: () -> Unit,
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
     var selectedCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val zone = remember { ZoneId.systemDefault() }
+    val todaySessionCount = remember(state.sessions, zone) {
+        UsageLogic.sessionsToday(state.sessions, System.currentTimeMillis(), zone).size
+    }
 
     PullToRefreshBox(
         isRefreshing = state.refreshing,
@@ -93,25 +100,78 @@ fun OverviewScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
-                .padding(top = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+                .padding(top = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            // Activity overview: title, compact stats, access warning.
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    text = stringResource(R.string.title_overview),
+                    text = stringResource(R.string.tab_overview),
                     style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f),
                 )
+                IconButton(
+                    onClick = { vm.refresh() },
+                    enabled = !state.refreshing,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = stringResource(R.string.refresh),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SourceBadge(
+                    text = if (state.usageGranted) {
+                        stringResource(R.string.source_standard_available)
+                    } else {
+                        stringResource(R.string.source_standard_unavailable)
+                    },
+                )
+                Spacer(Modifier.weight(1f))
+                val updatedAt = remember(state.lastRefreshedAt) {
+                    state.lastRefreshedAt.takeIf { it > 0 }?.let {
+                        DateTimeFormatter.ofPattern("HH:mm:ss", Locale.getDefault())
+                            .format(Instant.ofEpochMilli(it).atZone(zone))
+                    }
+                }
+                if (updatedAt != null) {
+                    Text(
+                        text = stringResource(R.string.updated_at, updatedAt),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Precisely scoped summary metrics.
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StatCard(
-                        label = stringResource(R.string.stat_records),
-                        value = formatCount(state.recordCount),
+                        label = stringResource(R.string.stat_today_activity),
+                        value = stringResource(
+                            R.string.session_count_value,
+                            formatCount(todaySessionCount),
+                        ),
+                        support = stringResource(R.string.stat_today_activity_support),
                         modifier = Modifier.weight(1f),
                     )
                     StatCard(
                         label = stringResource(R.string.stat_apps),
-                        value = formatCount(state.sensitiveApps.size),
+                        value = stringResource(
+                            R.string.app_count_value,
+                            formatCount(state.sensitiveApps.size),
+                        ),
+                        support = stringResource(R.string.stat_apps_support),
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -141,6 +201,7 @@ fun OverviewScreen(
                         selected = selectedCell,
                         onSelect = { selectedCell = it },
                     )
+                    HeatmapPeakSummary(grid)
                 }
                 HeatmapLegend()
                 selectedCell?.let { (row, day) ->
@@ -148,45 +209,73 @@ fun OverviewScreen(
                 }
             }
 
-            // Permission coverage.
+            // Counts are declarations among the visible sensitive-app inventory.
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = stringResource(R.string.coverage_title),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
-                val byCap = state.coverage.associateBy { it.capability }
-                Row(Modifier.fillMaxWidth()) {
-                    CoverageCell(Capability.MIC, Icons.Outlined.Mic, byCap[Capability.MIC], Modifier.weight(1f))
-                    Spacer(Modifier.width(16.dp))
-                    CoverageCell(Capability.CAMERA, Icons.Outlined.PhotoCamera, byCap[Capability.CAMERA], Modifier.weight(1f))
-                }
-                Row(Modifier.fillMaxWidth()) {
-                    CoverageCell(Capability.LOCATION, Icons.Outlined.LocationOn, byCap[Capability.LOCATION], Modifier.weight(1f))
-                    Spacer(Modifier.width(16.dp))
-                    CoverageCell(Capability.CONTACTS, Icons.Outlined.Person, byCap[Capability.CONTACTS], Modifier.weight(1f))
-                }
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.clipboard_motion),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = stringResource(R.string.not_observable),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                state.coverage
+                    .sortedByDescending { it.requestingApps }
+                    .forEach { coverage ->
+                        CoverageRow(
+                            coverage = coverage,
+                            icon = when (coverage.capability) {
+                                Capability.MIC -> Icons.Outlined.Mic
+                                Capability.CAMERA -> Icons.Outlined.PhotoCamera
+                                Capability.LOCATION -> Icons.Outlined.LocationOn
+                                Capability.CONTACTS -> Icons.Outlined.Person
+                            },
+                            onClick = { onOpenApps(coverage.capability) },
+                        )
+                    }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .glassSurface(cornerRadius = 12.dp)
+                    .clickable(onClick = onOpenSources)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.WarningAmber,
+                    contentDescription = null,
+                    tint = warningColor(),
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(18.dp),
+                )
+                Column(
+                    Modifier
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.monitoring_limit_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = stringResource(R.string.monitoring_limit_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Outlined.ChevronRight,
+                    contentDescription = stringResource(R.string.sources_action),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(18.dp),
+                )
+            }
+
             Spacer(Modifier.height(bottomInset))
         }
     }
@@ -200,8 +289,7 @@ internal fun AccessWarningBanner() {
         Modifier
             .fillMaxWidth()
             .height(48.dp)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-            .clip(RoundedCornerShape(8.dp))
+            .glassSurface(cornerRadius = 8.dp)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -241,8 +329,7 @@ private fun CameraLiveBanner(state: UiState) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(detailBarColor())
+                .glassSurface(cornerRadius = 8.dp, active = true)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -262,18 +349,22 @@ private fun CameraLiveBanner(state: UiState) {
     }
 }
 
-/** "Last N days ⌄" control opening a 7/14/28-day range menu. */
+/** "Last N days ⌄" control opening a 7/14/30-day range menu. */
 @Composable
 private fun WindowRangeMenu(vm: SentinelViewModel, state: UiState) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Row(
-            Modifier.clickable { expanded = true },
+            Modifier
+                .height(40.dp)
+                .glassSurface(cornerRadius = 20.dp)
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = stringResource(R.string.heatmap_window, state.windowDays),
+                text = stringResource(R.string.heatmap_window_total, state.windowDays),
                 fontSize = 13.sp,
                 lineHeight = 16.sp,
                 color = MaterialTheme.colorScheme.primary,
@@ -285,8 +376,13 @@ private fun WindowRangeMenu(vm: SentinelViewModel, state: UiState) {
                 modifier = Modifier.size(14.dp),
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for (days in listOf(7, 14, 28)) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        ) {
+            for (days in listOf(7, 14, 30)) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.heatmap_window, days)) },
                     onClick = {
@@ -309,17 +405,19 @@ private fun SelectedIntervalBar(
     onOpenTimeline: () -> Unit,
 ) {
     val (from, until) = HeatmapDayIntervals[row]
-    val bucketSessions = remember(state.sessions, row, day) {
-        UsageLogic.sessionsInDayInterval(state.sessions, day + 1, from, until, zone)
+    val totalMinutes = remember(state.heatmap, row, day) {
+        var minutes = 0L
+        for (hour in from until until) {
+            minutes += state.heatmap?.get(day, hour) ?: 0L
+        }
+        minutes
     }
-    val totalMinutes = UsageLogic.minutesBetween(bucketSessions, 0, Long.MAX_VALUE)
     val dayName = DayOfWeek.of(day + 1).getDisplayName(TextStyle.SHORT, Locale.getDefault())
     Row(
         Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(detailBarColor())
+            .glassSurface(cornerRadius = 8.dp, active = true)
             .clickable(onClick = onOpenTimeline)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -349,18 +447,47 @@ private fun SelectedIntervalBar(
     }
 }
 
-/** Flat coverage cell: 20dp icon + 14sp name + count, hairline bottom border. */
 @Composable
-private fun CoverageCell(
-    capability: Capability,
+private fun HeatmapPeakSummary(grid: app.permissionsentinel.data.HeatmapGrid) {
+    val peak = remember(grid) {
+        UsageLogic.peakDayInterval(grid, HeatmapDayIntervals)
+    } ?: return
+    val (from, until) = HeatmapDayIntervals[peak.intervalIndex]
+    val dayName = DayOfWeek.of(peak.dayIndex + 1)
+        .getDisplayName(TextStyle.FULL, Locale.getDefault())
+    Text(
+        text = stringResource(
+            R.string.heatmap_peak_summary,
+            dayName,
+            from,
+            until,
+            peak.minutes,
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(cornerRadius = 10.dp, active = true)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+    )
+}
+
+/** Declaration count, inventory ratio and route to the matching app list. */
+@Composable
+private fun CoverageRow(
+    coverage: CapabilityCoverage,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    coverage: CapabilityCoverage?,
-    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
     val outline = MaterialTheme.colorScheme.outline
-    Row(
-        modifier
-            .height(44.dp)
+    val ratio = if (coverage.totalApps == 0) 0f
+    else coverage.requestingApps.toFloat() / coverage.totalApps
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp)
             .drawBehind {
                 val stroke = 1.dp.toPx()
                 drawLine(
@@ -370,28 +497,52 @@ private fun CoverageCell(
                     strokeWidth = stroke,
                 )
             },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = capability.id,
-            tint = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.size(20.dp),
-        )
-        Text(
-            text = capabilityTitle(capability),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = coverage?.let { formatCount(it.requestingApps) } ?: "0",
-            fontSize = 13.sp,
-            lineHeight = 16.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = coverage.capability.id,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = capabilityTitle(coverage.capability),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = stringResource(
+                    R.string.coverage_count_ratio,
+                    coverage.requestingApps,
+                    (ratio * 100).toInt(),
+                ),
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Spacer(Modifier.height(7.dp))
+        LinearProgressIndicator(
+            progress = { ratio },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
     }
 }

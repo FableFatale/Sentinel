@@ -1,59 +1,129 @@
-# Permission Sentinel（权限哨兵）— 实现报告
+# Permission Sentinel（权限哨兵）实现报告
 
-日期：2026-10-25　设备：OnePlus PJZ110（Android 17 / SDK 37，1440×3168）
+日期：2026-10-26
+项目：`E:\Sentinel`
+真机：OnePlus 13（`2160d732`，Android 17 / API 37，1440×3168）
 
-## 交付物
+## 当前交付
 
-| 文件 | 说明 |
+| 文件 | 状态 |
 |---|---|
-| `outputs/permission-sentinel-release.apk` | Release（R8 混淆 + 资源收缩，2.4 MB），已装真机 |
-| `outputs/permission-sentinel-debug.apk` | Debug（58 MB，含调试符号） |
-| `outputs/screenshot-*.png` | 真机实拍：总览（中文/深色、英文/浅色）、时间线、应用、设置、热力图交互 |
-| 项目根 | Gradle 工程（`./gradlew` 未提交，用系统 Gradle 8.14 + JDK 17 + AGP 8.7.3 + Kotlin 2.0.21 + Compose BOM 2024.12） |
+| `outputs/permission-sentinel-final-debug.apk` | 最终验证版本，已安装到 OnePlus 13 |
+| `app/build/outputs/apk/debug/app-debug.apk` | 同一最终 APK 的 Gradle 输出 |
+| `outputs/permission-sentinel-release.apk` | 历史 Release，早于最终交互修复，不用于当前验收 |
+| `artifacts/android-overview-dark-final.png` | 最终深色总览实拍 |
+| `artifacts/android-timeline-filter-dark.png` | 时间线筛选菜单实拍 |
 
-## 架构
+最终 APK：
 
-单模块 `:app`，无 Room、无导航库、无 Hilt；依赖仅 AndroidX（Compose M3、Lifecycle、DataStore、Splashscreen）+ kotlinx-coroutines + material-icons-extended。**无 INTERNET 权限**（清单未声明，本地优先是结构性的，不是策略性的）。
+- 大小：58,105,305 bytes
+- SHA-256：`20DB22BD2B986300068133D297B3AA80339283C4BC300CD75A14E387889296E2`
+- 包名：`app.permissionsentinel`
+- 安装命令：`adb -s 2160d732 install -r outputs\permission-sentinel-final-debug.apk`
+- 不得清除应用数据：`adb clear`
 
-- `data/`：纯 Kotlin 逻辑（会话配对、热力图分桶、记录编解码、权限分类）+ 设备源（UsageEvents、PackageManager、CameraManager availability callback）+ DataStore 存储。
-- `ui/`：Compose M3；四页（总览/时间线/应用/设置）+ 底部导航（仅实际切换时 `CONTEXT_CLICK` 轻震动）。
-- `SentinelApplication` 持有进程级 `SentinelRepository`（相机监听全生命周期）。
-- 主题：浅/深/跟随系统；语言：系统/English/简体中文（`LocaleManager`，minSdk 33 免 appcompat）；edge-to-edge + Scaffold 安全区域。
+## 已实现的 UI
 
-## 真机可行性验证（先于 UI，PRD 要求）
+本版按用户反馈重构为统一的 Compose 移动端视觉语言：
 
-以原 APK（`app.permissionsentinel.audit`，Shizuku 路线）为参照，在本机实测：
+- 底部四项导航：总览、时间线、应用、设置。
+- 悬浮玻璃底栏：实时背景模糊、半透明 frost、发丝边框、统一图标/文字垂直居中。
+- 页面切换：方向性平移、淡入淡出和按压缩放。
+- 导航震动：仅在 Tab 实际切换时触发。
+- 深色模式：系统状态栏、导航栏和应用表面颜色一致。
+- 语言：英文 / 简体中文，可跟随系统。
+- 主题：浅色 / 深色 / 跟随系统。
 
-| 信号 | 结论 | 证据（`app/build/outputs/androidTest-results/` 探针日志） |
-|---|---|---|
-| 使用情况访问（PACKAGE_USAGE_STATS） | ✅ 可用 | 本机 op 默认 allow；探针读取 24h 内 **3657 个会话**；UI 全部时间线/热力图数据来源于此 |
-| 跨应用相机占用（实时） | ✅ 可用 | `CameraManager.AvailabilityCallback` 免权限注册成功（5 个摄像头）；端到端：打开系统相机 → 应用"记录 0→2"（cam_on/cam_off 各一条） |
-| 跨应用相机/麦克风**历史** | ❌ 不可行 | 原 APK 依赖 Shizuku（未安装）+ `GET_APP_OPS_STATS`（ADB `appops set` 报 Unknown operation、`pm grant` 被 GRANT_RUNTIME_PERMISSIONS 拒绝、shell 已无 MANAGE_APP_OPS_MODES）；探针确认他包 op 历史被屏蔽 |
-| 麦克风占用 | ❌ 不可观测 | 无公开跨应用 API；UI 不展示、不宣称 |
+## 总览页
 
-因此 UI 遵守诚实边界：权限覆盖显示"声明应用数"（149 个真实应用；本机 93 个可见授予标志），剪贴板/传感器标注"不可观测"，相机记录不归属具体应用（回调不提供包名，记录 actor 为 `(unknown)`）。
+总览页已按最新反馈修正：
 
-## 测试结果
+- 标题统一为「总览」。
+- 刷新按钮显示准确更新时间。
+- 「今天」指标明确来自 UsageStats 前台会话。
+- 「敏感权限应用」明确统计已安装、可启动且声明敏感权限的应用。
+- 热力图支持 7 / 14 / 30 天累计口径，格内显示真实分钟数，行标签带「时」，并显示高峰结论。
+- 权限声明行显示应用数、占比、进度条和可进入应用列表的结构。
+- 剪贴板和运动传感器说明明确：不可观测不代表没有访问。
+- 不使用虚构趋势、伪造会话或无来源的实时数据。
 
-- **单元测试 22/22 通过**：会话配对（跨天/切换/悬挂事件/零长会话）、热力图分桶（跨小时切分/分钟上进/星期索引）、记录编解码（往返/坏行跳过/5000 条裁剪）、权限分类（授予/掩码/多权限归并）。
-- **真机探针 5/5 通过**（`connectedDebugAndroidTest`）：usageAccess、cameraAvailability、packagePermissionFlags、appOpsForeignRead、uidSelfCheck。
-- **局部功能实测（真机手势驱动）**：四页导航、热力图点击查看时段明细（Wed 15:00–16:00 · 16 min：Threads/同花顺/sing-box）、日期切换、浅色/深色切换（状态栏图标联动）、中英切换（activity 重建）、相机检测记录、下拉刷新、清除记录对话框。
+## 时间线页
 
-## 交互与动效（真机验证）
+- 记录按时间降序排列，从今天开始。
+- 日期筛选：今天、昨天、近 7 天。
+- 搜索框与筛选菜单分离。
+- 筛选菜单为锚定弹层，不会拉起输入法。
+- 搜索时输入法出现会隐藏底部导航；输入法关闭后底栏恢复。
+- Android Back 仅先关闭输入法，不会退出应用。
 
-- **切换震动**：底栏切换用 `VibratorManager` + `VibrationEffect.createPredefined(EFFECT_TICK)`（需 `VIBRATE` 权限，普通级）。实测 `dumpsys vibrator_manager` 记录：`app.permissionsentinel … played: Prebaked=TICK`（62ms，TOUCH 用途），仅在 tab 实际变化时触发。此前的 `View.performHapticFeedback(CONTEXT_CLICK)` 在 ColorOS 上几乎无感，已替换。
-- **透明玻璃底栏**：悬浮圆角胶囊，纯 Compose 实现（无三方库）：内容 Box 经 `drawWithContent` 录制进 `rememberGraphicsLayer()`，底栏以 `graphicsLayer { renderEffect = BlurEffect(14dp, 14dp, TileMode.Decal) }` + 半透明 frost + 发丝边框/顶部高光合成；列表内容从玻璃下滑过并实时模糊。深浅主题各自调 tint。
-- **动效**：页面切换 `AnimatedContent` 方向性滑动+淡入淡出；底栏图标 spring 弹跳放大 + 选中药丸淡入 + 按压整列缩小；应用列表行按压缩放反馈；总览统计数字变化上滑动画。
+已验证路径：时间线 → 点击搜索 → 键盘出现 → `input keyevent 4` → 键盘关闭、页面仍在时间线、底部导航恢复。
 
-## 已验证功能 / 限制
+## 真机验证结果
 
-**已验证**：真实前台会话（近 28 天，本机事件日志全量可读）、7×24 交互热力图（真实分钟数着色）、应用清单与权限覆盖统计、相机实时检测与本地记录、双语双主题、安全区域自适应、玻璃底栏、切换震动、页面/按压/数字动效、启动动画（SplashScreen API）。
+### 构建与测试
 
-**限制**：① 跨应用麦克风/相机历史监控在本机不可行（无 root/Shizuku），故不提供该功能；② 相机记录仅在哨兵进程存活时累积（前台/后台均可，进程被杀则中断）；③ 少数无 launch intent 的系统组件显示原始包名；④ 相机记录不含归属应用（平台不提供）。
+- `testDebugUnitTest`：26/26 通过
+- `lintDebug`：通过
+- `assembleDebug`：通过
+- 最近完整构建：`BUILD SUCCESSFUL in 42s`
 
-## 复现
+### 震动反馈
 
-```bash
-JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home gradle assembleDebug testDebugUnitTest connectedDebugAndroidTest
-adb install -r app/build/outputs/apk/release/app-release.apk
+实现：
+
+```kotlin
+VibrationEffect.createWaveform(
+    longArrayOf(0L, 45L),
+    intArrayOf(0, 180),
+    -1,
+)
 ```
+
+最终 APK 在 2026-10-26 17:25:58 产生真实应用级震动记录：
+
+```text
+10-26 17:25:58.198 | effect | finished
+usage: TOUCH | app.permissionsentinel (uid=10524)
+reason: From [S0, S45]
+```
+
+同一时间段没有 `ignored_unsupported`。系统自身的 TOUCH 记录没有作为应用震动证据。
+
+### 时间线筛选
+
+真机点击筛选按钮后：
+
+- 弹出「全部应用」「仅敏感权限应用」菜单。
+- 输入法未出现。
+- 菜单位于内容区域上方，没有遮挡底部安全区。
+- 关闭菜单后底部导航正常恢复。
+
+## 数据与权限边界
+
+当前功能只使用本地或系统可验证来源：
+
+- UsageStats：前台使用会话。
+- PackageManager：已安装应用和敏感权限声明。
+- CameraManager.AvailabilityCallback：相机占用实时检测。
+- 本地 DataStore：记录历史、主题、语言和保留设置。
+- 应用未声明 `INTERNET` 权限。
+
+当前限制：
+
+- 标准模式下无法跨应用观测剪贴板访问历史。
+- 标准模式下无法获得其他应用的运动传感器历史。
+- 相机占用记录不包含触发应用包名，系统回调不提供该信息。
+- 相机检测只在本应用进程存活期间累积。
+- 尚未在更多 OEM、Android 版本或物理屏幕尺寸上完成独立验收。
+
+## Git 状态
+
+本项目当前存在大量未提交修改，包含 UI、主题、数据逻辑、测试、图标和本次报告。继续工作时不要回退这些文件。
+
+## 接手建议
+
+1. 先读 `app/src/main/kotlin/app/permissionsentinel/ui/`，不要先改视觉层。
+2. 修改导航时保持键盘处理、玻璃底栏和震动逻辑的边界。
+3. 修改总览指标时继续区分：UsageStats 前台会话、应用声明数、权限授予数。
+4. 重新构建后必须重新安装并更新 APK 大小和 SHA-256。
+5. 涉及震动的结论只能以 `app.permissionsentinel` 的 `dumpsys vibrator_manager` 记录为证据。

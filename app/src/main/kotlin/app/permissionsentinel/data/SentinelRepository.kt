@@ -66,7 +66,7 @@ class SentinelRepository(
 
     companion object {
         const val UNKNOWN_ACTOR = "(unknown)"
-        const val DEFAULT_WINDOW_DAYS = 28
+        const val DEFAULT_WINDOW_DAYS = 30
         private const val DAY_MS = 24L * 60 * 60 * 1000
     }
 }

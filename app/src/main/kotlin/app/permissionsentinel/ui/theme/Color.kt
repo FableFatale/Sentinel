@@ -38,10 +38,10 @@ fun heatmapLevels(dark: Boolean): List<Color> = if (dark) {
     )
 } else {
     listOf(
-        Color(0xFFF4F4F5),
-        Color(0xFFDBEAFE),
-        Color(0xFF93C5FD),
-        Color(0xFF60A5FA),
+        Color(0xFFEEF0F3),
+        Color(0xFFCFE3FF),
+        Color(0xFF8DBCF8),
+        Color(0xFF4F91EC),
         Color(0xFF2563EB),
     )
 }
