@@ -101,6 +101,23 @@
     <string name="permission_watch_title">权限观察（无障碍）</string>
     <string name="accessibility_watch_label">权限观察</string>
     <string name="accessibility_watch_desc">观察窗口切换与系统权限弹窗，本地记录权限授予活动；不读取、不存储其他应用的屏幕内容。</string>
+
+    <!-- 独立授权引导：每个系统开关一张卡，分厂商写明设置路径。 -->
+    <string name="access_guide_note">两个相互独立的系统开关，可只开其中一个，也可都开——各自提供不同的数据源。</string>
+    <string name="usage_access_desc">为时间线与活动热力图提供真实前台会话；未开启时应用只能显示实时的相机与麦克风状态。</string>
+    <string name="permission_watch_desc">本地记录系统权限弹窗与应用切换，完全可选，默认关闭。</string>
+    <string name="open_system_settings">打开系统设置</string>
+    <string name="vendor_pixel">Pixel</string>
+    <string name="vendor_samsung">三星</string>
+    <string name="vendor_oneplus">一加</string>
+    <string name="vendor_this_device">本机</string>
+    <string name="usage_path_pixel">设置 → 应用 → 特殊应用权限 → 使用情况访问</string>
+    <string name="usage_path_samsung">设置 → 安全和隐私 → 更多隐私设置 → 使用情况访问</string>
+    <string name="usage_path_oneplus">设置 → 隐私 → 特殊应用权限 → 使用情况访问</string>
+    <string name="watch_path_pixel">设置 → 无障碍 → 已下载的应用 → 权限哨兵</string>
+    <string name="watch_path_samsung">设置 → 辅助功能 → 已安装的应用 → 权限哨兵</string>
+    <string name="watch_path_oneplus">设置 → 更多设置 → 无障碍 → 已下载的应用 → 权限哨兵</string>
+    <string name="banner_watch_off">权限观察（无障碍）未开启</string>
     <string name="observation_limits">观测限制</string>
     <string name="observation_limits_value">查看</string>
     <string name="observation_limits_title">标准模式边界</string>

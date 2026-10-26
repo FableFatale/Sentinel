@@ -28,6 +28,7 @@ class SentinelRepository(
     val settingsStore = SettingsStore(appContext)
     val cameraWatch = CameraWatch(appContext)
     val micWatch = MicWatch(appContext)
+    private val sessionArchive = SessionArchive(appContext)
 
     private val _cameraBusy = MutableStateFlow(false)
     val cameraBusy: StateFlow<Boolean> = _cameraBusy
@@ -74,13 +75,22 @@ class SentinelRepository(
     suspend fun refresh(windowDays: Int = DEFAULT_WINDOW_DAYS): UsageSnapshot = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val from = now - windowDays * DAY_MS
+        val zone = ZoneId.systemDefault()
         val granted = UsageSource.isUsageAccessGranted(appContext)
-        val sessions = if (granted) UsageSource.querySessions(appContext, from, now) else emptyList()
+        val live = if (granted) UsageSource.querySessions(appContext, from, now) else emptyList()
+        // Persist what the system still reports, then serve the window from the
+        // archive so history survives the system's short event-log retention.
+        // Live entries win the (package, start) dedupe — their end is freshest.
+        sessionArchive.merge(live, zone)
+        val archived = sessionArchive.read(from, now, zone)
+        val sessions = (live + archived)
+            .distinctBy { it.packageName to it.start }
+            .sortedBy { it.start }
         UsageSnapshot(
             sessions = sessions,
             from = from,
             to = now,
-            heatmap = UsageLogic.bucketSessions(sessions, ZoneId.systemDefault()),
+            heatmap = UsageLogic.bucketSessions(sessions, zone),
             usageGranted = granted,
         )
     }

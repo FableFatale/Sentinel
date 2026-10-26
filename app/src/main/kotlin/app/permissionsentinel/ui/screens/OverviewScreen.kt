@@ -41,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.permissionsentinel.R
 import app.permissionsentinel.SentinelViewModel
@@ -68,6 +70,7 @@ import app.permissionsentinel.ui.components.SourceBadge
 import app.permissionsentinel.ui.components.StatCard
 import app.permissionsentinel.ui.components.glassSurface
 import app.permissionsentinel.ui.theme.warningColor
+import app.permissionsentinel.watch.WatchAccessibility
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
@@ -87,6 +90,14 @@ fun OverviewScreen(
     val state by vm.ui.collectAsStateWithLifecycle()
     var selectedCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val zone = remember { ZoneId.systemDefault() }
+    val context = LocalContext.current
+    // The two system switches are independent; re-read both on every resume.
+    var resumeKey by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumeKey++
+        onPauseOrDispose { }
+    }
+    val watchEnabled = remember(resumeKey) { WatchAccessibility.isEnabled(context) }
     val todaySessionCount = remember(state.sessions, zone) {
         UsageLogic.sessionsToday(state.sessions, System.currentTimeMillis(), zone).size
     }
@@ -177,6 +188,9 @@ fun OverviewScreen(
                 }
                 if (!state.usageGranted) {
                     AccessWarningBanner()
+                }
+                if (!watchEnabled) {
+                    WatchWarningBanner()
                 }
                 CameraLiveBanner(state)
                 MicLiveBanner(state)
@@ -309,6 +323,47 @@ internal fun AccessWarningBanner() {
         )
         TextButton(
             onClick = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+            contentPadding = PaddingValues(horizontal = 8.dp),
+            modifier = Modifier.height(36.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.open_settings),
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/** Independent banner for the accessibility watch — a separate system switch. */
+@Composable
+internal fun WatchWarningBanner() {
+    val context = LocalContext.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .glassSurface(cornerRadius = 8.dp)
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.WarningAmber,
+            contentDescription = null,
+            tint = warningColor(),
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            text = stringResource(R.string.banner_watch_off),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(
+            onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
             contentPadding = PaddingValues(horizontal = 8.dp),
             modifier = Modifier.height(36.dp),
         ) {

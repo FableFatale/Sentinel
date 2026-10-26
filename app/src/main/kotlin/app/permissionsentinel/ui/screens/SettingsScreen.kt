@@ -9,23 +9,28 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -33,7 +38,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.permissionsentinel.R
 import app.permissionsentinel.SentinelViewModel
@@ -43,6 +51,8 @@ import app.permissionsentinel.ui.components.CompactSwitch
 import app.permissionsentinel.ui.components.PageHeader
 import app.permissionsentinel.ui.components.SectionLabel
 import app.permissionsentinel.ui.components.SettingsRow
+import app.permissionsentinel.ui.components.glassSurface
+import app.permissionsentinel.ui.theme.warningColor
 import app.permissionsentinel.watch.WatchAccessibility
 import org.json.JSONArray
 import org.json.JSONObject
@@ -54,6 +64,108 @@ private enum class SettingsDialog {
     OBSERVATION_LIMITS,
 }
 
+private const val VENDOR_PIXEL = "pixel"
+private const val VENDOR_SAMSUNG = "samsung"
+private const val VENDOR_ONEPLUS = "oneplus"
+
+/** Maps the device manufacturer to one of the documented vendor paths. */
+private val currentVendorKey: String? by lazy {
+    val m = android.os.Build.MANUFACTURER.lowercase()
+    when {
+        m.contains("google") -> VENDOR_PIXEL
+        m.contains("samsung") -> VENDOR_SAMSUNG
+        listOf("oneplus", "oppo", "realme", "deltag").any { m.contains(it) } -> VENDOR_ONEPLUS
+        else -> null
+    }
+}
+
+/**
+ * One independent system switch, HAT-style: status badge, what it powers,
+ * per-vendor settings paths (current device highlighted) and a direct jump.
+ */
+@Composable
+private fun AccessGuideCard(
+    title: String,
+    description: String,
+    enabled: Boolean,
+    grantedText: String,
+    notGrantedText: String,
+    paths: List<Triple<String, String, String>>,
+    currentVendor: String?,
+    onOpenSettings: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .glassSurface(cornerRadius = 16.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = if (enabled) grantedText else notGrantedText,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (enabled) MaterialTheme.colorScheme.primary else warningColor(),
+            )
+        }
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        paths.forEach { (vendorLabel, path, vendorKey) ->
+            val isThisDevice = vendorKey == currentVendor
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = vendorLabel,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = if (isThisDevice) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isThisDevice) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(64.dp),
+                )
+                Text(
+                    text = path,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isThisDevice) MaterialTheme.colorScheme.onBackground
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (isThisDevice) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.vendor_this_device),
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+        Button(
+            onClick = onOpenSettings,
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+            modifier = Modifier.height(34.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.open_system_settings),
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+            )
+        }
+    }
+}
+
 @Composable
 fun SettingsScreen(vm: SentinelViewModel, bottomInset: androidx.compose.ui.unit.Dp) {
     val state by vm.ui.collectAsStateWithLifecycle()
@@ -62,6 +174,13 @@ fun SettingsScreen(vm: SentinelViewModel, bottomInset: androidx.compose.ui.unit.
     var openDialog by remember { mutableStateOf<SettingsDialog?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
     val usageGranted = UsageSource.isUsageAccessGranted(context)
+    // Re-read the two system switches when the user comes back from Settings.
+    var resumeKey by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumeKey++
+        onPauseOrDispose { }
+    }
+    val watchEnabled = remember(resumeKey) { WatchAccessibility.isEnabled(context) }
     val exportSucceeded = stringResource(R.string.export_succeeded)
     val exportFailed = stringResource(R.string.export_failed)
     val exportLauncher = rememberLauncherForActivityResult(
@@ -116,34 +235,48 @@ fun SettingsScreen(vm: SentinelViewModel, bottomInset: androidx.compose.ui.unit.
         Spacer(Modifier.height(22.dp))
         SectionLabel(stringResource(R.string.settings_access))
         Spacer(Modifier.height(4.dp))
-        SettingsRow(
-            label = stringResource(R.string.collection_mode),
-            value = stringResource(R.string.collection_mode_standard),
+        Text(
+            text = stringResource(R.string.access_guide_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        SettingsRow(
-            label = stringResource(R.string.usage_access_title),
-            value = if (usageGranted) {
-                stringResource(R.string.status_granted)
-            } else {
-                stringResource(R.string.status_not_granted)
-            },
-            showChevron = true,
-            onClick = {
+        Spacer(Modifier.height(10.dp))
+        // Step 1 — usage access (its own system switch, own data source).
+        AccessGuideCard(
+            title = stringResource(R.string.usage_access_title),
+            description = stringResource(R.string.usage_access_desc),
+            enabled = usageGranted,
+            grantedText = stringResource(R.string.status_granted),
+            notGrantedText = stringResource(R.string.status_not_granted),
+            paths = listOf(
+                Triple(stringResource(R.string.vendor_pixel), stringResource(R.string.usage_path_pixel), VENDOR_PIXEL),
+                Triple(stringResource(R.string.vendor_samsung), stringResource(R.string.usage_path_samsung), VENDOR_SAMSUNG),
+                Triple(stringResource(R.string.vendor_oneplus), stringResource(R.string.usage_path_oneplus), VENDOR_ONEPLUS),
+            ),
+            currentVendor = currentVendorKey,
+            onOpenSettings = {
                 context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
             },
         )
-        SettingsRow(
-            label = stringResource(R.string.permission_watch_title),
-            value = if (WatchAccessibility.isEnabled(context)) {
-                stringResource(R.string.status_granted)
-            } else {
-                stringResource(R.string.status_not_granted)
-            },
-            showChevron = true,
-            onClick = {
+        Spacer(Modifier.height(10.dp))
+        // Step 2 — accessibility watch (a separate switch, fully optional).
+        AccessGuideCard(
+            title = stringResource(R.string.permission_watch_title),
+            description = stringResource(R.string.permission_watch_desc),
+            enabled = watchEnabled,
+            grantedText = stringResource(R.string.status_granted),
+            notGrantedText = stringResource(R.string.status_not_granted),
+            paths = listOf(
+                Triple(stringResource(R.string.vendor_pixel), stringResource(R.string.watch_path_pixel), VENDOR_PIXEL),
+                Triple(stringResource(R.string.vendor_samsung), stringResource(R.string.watch_path_samsung), VENDOR_SAMSUNG),
+                Triple(stringResource(R.string.vendor_oneplus), stringResource(R.string.watch_path_oneplus), VENDOR_ONEPLUS),
+            ),
+            currentVendor = currentVendorKey,
+            onOpenSettings = {
                 context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             },
         )
+        Spacer(Modifier.height(10.dp))
         SettingsRow(
             label = stringResource(R.string.observation_limits),
             value = stringResource(R.string.observation_limits_value),
