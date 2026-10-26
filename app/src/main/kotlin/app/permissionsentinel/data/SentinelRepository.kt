@@ -27,12 +27,17 @@ class SentinelRepository(
     val recordStore = RecordStore(appContext)
     val settingsStore = SettingsStore(appContext)
     val cameraWatch = CameraWatch(appContext)
+    val micWatch = MicWatch(appContext)
 
     private val _cameraBusy = MutableStateFlow(false)
     val cameraBusy: StateFlow<Boolean> = _cameraBusy
 
+    private val _micBusy = MutableStateFlow(false)
+    val micBusy: StateFlow<Boolean> = _micBusy
+
     init {
         cameraWatch.start()
+        micWatch.start()
         scope.launch {
             cameraWatch.busy.drop(1).collect { busy ->
                 _cameraBusy.value = busy
@@ -44,6 +49,24 @@ class SentinelRepository(
                         packageName = UNKNOWN_ACTOR,
                     )
                 )
+            }
+        }
+        scope.launch {
+            var lastBusy = false
+            micWatch.clients.collect { clients ->
+                val busy = clients.isNotEmpty()
+                if (busy != lastBusy) {
+                    lastBusy = busy
+                    // Recording configurations do not expose the client package to us.
+                    recordStore.append(
+                        SentinelRecord(
+                            timestamp = System.currentTimeMillis(),
+                            type = if (busy) RecordType.MIC_BUSY_ON else RecordType.MIC_BUSY_OFF,
+                            packageName = UNKNOWN_ACTOR,
+                        )
+                    )
+                }
+                _micBusy.value = busy
             }
         }
     }

@@ -120,6 +120,40 @@ reason: From [S0, S45]
 
 本项目当前存在大量未提交修改，包含 UI、主题、数据逻辑、测试、图标和本次报告。继续工作时不要回退这些文件。
 
+## 扩展隐私信号调研（2026-10-26 新增）
+
+目标：在不 root、不 privileged 签名的前提下，评估哨兵还能观测哪些隐私信号。结论按证据强度分级。
+
+### 已实现（真机探针待接回设备后执行）
+
+| 信号 | API | 实现位置 | 归属应用 |
+|---|---|---|---|
+| 麦克风“使用中”（实时） | `AudioManager.registerAudioRecordingCallback` / `getActiveRecordingConfigurations()` | `data/MicWatch.kt` | ❌ 不可得：`getClientUid`/`getClientPackageName` 在 SDK 35 公开 API 中不存在（javap 实证），归属仅 shell 层可见 |
+| 系统权限弹窗捕获 | 无障碍服务 `TYPE_WINDOW_STATE_CHANGED`，包名过滤 `*permissioncontroller*` | `watch/SentinelWatchService.kt` | ✅ 记录弹窗文本哈希（`RecordType.PERMISSION_DIALOG`），申请方可由前台归属推断 |
+| 窗口切换（前台变更） | 同上服务（无事件过滤的窗口事件） | 同上 | ✅ 实时，早于 UsageStats 轮询 |
+| 每应用网络流量 | `TrafficStats.getUidRx/TxBytes(uid)` 逐 UID | 探针 `MoreSignalsProbeTest` | ✅ 计数器公开可读（已入库为探针，UI 未展示） |
+
+- 麦克风横幅（“麦克风使用中”）已加入总览页，与相机横幅同一样式；记录类型 `mic_on`/`mic_off`。
+- 无障碍服务作用域严格限定：只处理 `permissioncontroller` 弹窗文本与窗口切换事件，声明 `canRetrieveWindowContent` 仅作为弹窗文本兜底，不读取、不存储其他应用屏幕内容；设置页新增“权限观察（无障碍）”状态行，跳转系统无障碍设置。
+- 真机探针（`MoreSignalsProbeTest`）：`probe_micAttribution`（用 `screenrecord --audio-source mic` 制造跨进程录音，断言应用内可见录音配置）、`probe_accessibilityWatch`（连接 → 窗口事件 → 经测试 APK 的 `ProbeRequestActivity` 触发真实定位权限弹窗并断言捕获文本）、`probe_trafficPerUid`。**待设备接回后执行并回填证据。**
+
+### 真机已验证（本机早期探针，仍然有效）
+
+- 相机“使用中”（`CameraManager` 回调）：✅ 可检测，❌ 无归属。
+- Shizuku / `GET_APP_OPS_STATS` 路线：❌ 本机全被拒（无 Shizuku、ADB 授权三处失败）——跨应用相机/麦克风**历史**仍然不可行。
+
+### 确认不可行（普通应用，无需再试）
+
+- 跨应用剪贴板、运动/身体传感器访问历史：无任何公开 API。
+- 跨应用定位“使用中”：无公开 API（仅系统 UI 隐私指示器）。
+- 权限弹窗以外的任意应用屏幕内容读取：拒绝实现——超出隐私透明工具的边界，属于监视。
+
+### 备选（未实现，明确记录）
+
+- `NotificationListenerService`：可读通知，对权限哨兵价值低，未实现。
+- `dumpsys audio` 的录音归属：仅 shell/ADB 可得，可作 ADB 模式扩展（本版本未启用，与“标准模式”边界一致）。
+- GrapheneOS 式系统级隐私面板：需要 privileged/系统签名，不可达。
+
 ## 接手建议
 
 1. 先读 `app/src/main/kotlin/app/permissionsentinel/ui/`，不要先改视觉层。
@@ -127,3 +161,4 @@ reason: From [S0, S45]
 3. 修改总览指标时继续区分：UsageStats 前台会话、应用声明数、权限授予数。
 4. 重新构建后必须重新安装并更新 APK 大小和 SHA-256。
 5. 涉及震动的结论只能以 `app.permissionsentinel` 的 `dumpsys vibrator_manager` 记录为证据。
+6. 新增探针执行方式：设备接回后先 `adb shell settings put secure enabled_accessibility_services app.permissionsentinel/app.permissionsentinel.watch.SentinelWatchService` 与 `settings put secure accessibility_enabled 1`，再跑 `connectedDebugAndroidTest`，结束后恢复原无障碍设置。

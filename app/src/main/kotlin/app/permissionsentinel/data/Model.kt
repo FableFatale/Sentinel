@@ -48,6 +48,7 @@ enum class RecordType(val id: String) {
     CAMERA_BUSY_OFF("cam_off"),
     MIC_BUSY_ON("mic_on"),
     MIC_BUSY_OFF("mic_off"),
+    PERMISSION_DIALOG("pdlg"),
     SENSITIVE_FG("sfg");
 
     companion object {

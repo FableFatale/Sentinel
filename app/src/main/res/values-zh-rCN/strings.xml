@@ -35,6 +35,7 @@
     <string name="now_foreground">当前前台</string>
     <string name="now_camera_busy">相机使用中</string>
     <string name="now_camera_idle">相机空闲</string>
+    <string name="now_mic_busy">麦克风使用中</string>
 
     <string name="cap_mic">麦克风</string>
     <string name="cap_camera">相机</string>
@@ -97,6 +98,9 @@
     <string name="language_system">跟随系统</string>
     <string name="collection_mode">采集模式</string>
     <string name="collection_mode_standard">标准模式</string>
+    <string name="permission_watch_title">权限观察（无障碍）</string>
+    <string name="accessibility_watch_label">权限观察</string>
+    <string name="accessibility_watch_desc">观察窗口切换与系统权限弹窗，本地记录权限授予活动；不读取、不存储其他应用的屏幕内容。</string>
     <string name="observation_limits">观测限制</string>
     <string name="observation_limits_value">查看</string>
     <string name="observation_limits_title">标准模式边界</string>
@@ -115,6 +119,6 @@
     <string name="confirm">清除</string>
     <string name="confirm_read">知道了</string>
     <string name="cancel">取消</string>
-    <string name="privacy_note">本地优先：数据不出设备。不采集音频、照片、联系人或精确位置。相机使用检测仅在哨兵运行时实时可用；无特权访问时，无法回溯观测其他应用的相机与麦克风历史。</string>
+    <string name="privacy_note">本地优先：数据不出设备。不采集音频、照片、联系人或精确位置。相机与麦克风的“使用中”检测仅在哨兵运行时实时可用；无特权访问时无法回溯历史。可选的“权限观察”（无障碍）仅本地记录系统权限弹窗与窗口切换，不读取应用屏幕内容。</string>
     <string name="privacy_note_short">记录仅保存在本机。不采集音频、照片、联系人、剪贴板内容或传感器样本。</string>
 </resources>

@@ -35,6 +35,7 @@
     <string name="now_foreground">Foreground now</string>
     <string name="now_camera_busy">Camera in use</string>
     <string name="now_camera_idle">Camera idle</string>
+    <string name="now_mic_busy">Microphone in use</string>
 
     <string name="cap_mic">Microphone</string>
     <string name="cap_camera">Camera</string>
@@ -97,6 +98,9 @@
     <string name="language_system">System default</string>
     <string name="collection_mode">Collection mode</string>
     <string name="collection_mode_standard">Standard</string>
+    <string name="permission_watch_title">Permission watch (accessibility)</string>
+    <string name="accessibility_watch_label">Permission watch</string>
+    <string name="accessibility_watch_desc">Observes window switches and system permission dialogs to keep a local record of permission activity. Does not read or store the screen content of other apps.</string>
     <string name="observation_limits">Observation limits</string>
     <string name="observation_limits_value">View</string>
     <string name="observation_limits_title">Standard mode boundary</string>
@@ -115,6 +119,6 @@
     <string name="confirm">Clear</string>
     <string name="confirm_read">Got it</string>
     <string name="cancel">Cancel</string>
-    <string name="privacy_note">Local-first: data never leaves this device. No audio, photos, contacts or precise location are collected. Camera-in-use detection is live-only while Sentinel runs; historical cross-app camera and microphone use is not observable without privileged access.</string>
+    <string name="privacy_note">Local-first: data never leaves this device. No audio, photos, contacts or precise location are collected. Camera and microphone-in-use detection is live-only while Sentinel runs; historical cross-app use is not observable without privileged access. The optional permission watch (accessibility) records system permission dialogs and window switches only, never app screen content.</string>
     <string name="privacy_note_short">Records stay on this device. No audio, photos, contacts, clipboard contents, or sensor samples are collected.</string>
 </resources>

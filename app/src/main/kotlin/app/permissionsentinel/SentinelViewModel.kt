@@ -36,6 +36,7 @@ data class UiState(
     val recordCount: Int = 0,
     val records: List<SentinelRecord> = emptyList(),
     val cameraBusy: Boolean = false,
+    val micBusy: Boolean = false,
     val foregroundPackage: String? = null,
     val foregroundLabel: String? = null,
     val lastRefreshedAt: Long = 0,
@@ -54,6 +55,9 @@ class SentinelViewModel(application: Application) : AndroidViewModel(application
     init {
         viewModelScope.launch {
             repo.cameraBusy.collect { busy -> _ui.update { it.copy(cameraBusy = busy) } }
+        }
+        viewModelScope.launch {
+            repo.micBusy.collect { busy -> _ui.update { it.copy(micBusy = busy) } }
         }
         viewModelScope.launch {
             repo.recordStore.records.collect { records ->

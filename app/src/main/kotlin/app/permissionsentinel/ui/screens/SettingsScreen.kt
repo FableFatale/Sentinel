@@ -43,6 +43,7 @@ import app.permissionsentinel.ui.components.CompactSwitch
 import app.permissionsentinel.ui.components.PageHeader
 import app.permissionsentinel.ui.components.SectionLabel
 import app.permissionsentinel.ui.components.SettingsRow
+import app.permissionsentinel.watch.WatchAccessibility
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -129,6 +130,18 @@ fun SettingsScreen(vm: SentinelViewModel, bottomInset: androidx.compose.ui.unit.
             showChevron = true,
             onClick = {
                 context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            },
+        )
+        SettingsRow(
+            label = stringResource(R.string.permission_watch_title),
+            value = if (WatchAccessibility.isEnabled(context)) {
+                stringResource(R.string.status_granted)
+            } else {
+                stringResource(R.string.status_not_granted)
+            },
+            showChevron = true,
+            onClick = {
+                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             },
         )
         SettingsRow(

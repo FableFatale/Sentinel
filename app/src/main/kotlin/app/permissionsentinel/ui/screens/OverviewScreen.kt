@@ -179,6 +179,7 @@ fun OverviewScreen(
                     AccessWarningBanner()
                 }
                 CameraLiveBanner(state)
+                MicLiveBanner(state)
             }
 
             // Activity heatmap.
@@ -342,6 +343,33 @@ private fun CameraLiveBanner(state: UiState) {
             )
             Text(
                 text = stringResource(R.string.now_camera_busy),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+/** Blue info bar while any app records audio (attribution is not observable to us). */
+@Composable
+private fun MicLiveBanner(state: UiState) {
+    AnimatedVisibility(visible = state.micBusy) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .glassSurface(cornerRadius = 8.dp, active = true)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Mic,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = stringResource(R.string.now_mic_busy),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
