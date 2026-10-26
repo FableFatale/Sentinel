@@ -121,6 +121,82 @@ class UsageLogicTest {
     }
 
     @Test
+    fun `pairSessions merges same-package activity-switch fragments`() {
+        val t0 = at("2026-10-25", "10:00:00")
+        val events = listOf(
+            RawEvent("com.a", t0, RawEvent.ACTIVITY_RESUMED),
+            RawEvent("com.a", t0 + 30_000, RawEvent.ACTIVITY_PAUSED),
+            RawEvent("com.a", t0 + 31_000, RawEvent.ACTIVITY_RESUMED), // in-app switch
+            RawEvent("com.a", t0 + 90_000, RawEvent.ACTIVITY_PAUSED),
+        )
+        val sessions = UsageLogic.pairSessions(events, endAt = t0 + 90_000)
+        assertEquals(1, sessions.size)
+        assertEquals(90_000L, sessions[0].durationMs)
+    }
+
+    @Test
+    fun `pairSessions keeps distinct packages and real gaps separate`() {
+        val t0 = at("2026-10-25", "10:00:00")
+        val events = listOf(
+            RawEvent("com.a", t0, RawEvent.ACTIVITY_RESUMED),
+            RawEvent("com.a", t0 + 30_000, RawEvent.ACTIVITY_PAUSED),
+            RawEvent("com.b", t0 + 31_000, RawEvent.ACTIVITY_RESUMED), // different app
+            RawEvent("com.b", t0 + 60_000, RawEvent.ACTIVITY_PAUSED),
+            RawEvent("com.a", t0 + 120_000, RawEvent.ACTIVITY_RESUMED), // real gap: 90s
+            RawEvent("com.a", t0 + 150_000, RawEvent.ACTIVITY_PAUSED),
+        )
+        val sessions = UsageLogic.pairSessions(events, endAt = t0 + 150_000)
+        assertEquals(3, sessions.size)
+    }
+
+    @Test
+    fun `bucketSessions rounds each hour cell independently for cross-cell slices`() {
+        // 13:59:50 -> 14:00:10 spans two hour cells; each cell holds real usage
+        // and rounds up once, so 1+1=2. This is the cell semantics users verify
+        // per cell — the aggregate inflation guard is the same-package fragment
+        // merge in pairSessions, not the rounding.
+        val sessions = listOf(
+            ActivitySession("com.a", at("2026-10-25", "13:59:50"), at("2026-10-25", "14:00:10")),
+        )
+        val grid = UsageLogic.bucketSessions(sessions, zone)
+        assertEquals(1L, grid[6, 13])
+        assertEquals(1L, grid[6, 14])
+    }
+
+    @Test
+    fun `fragment merge keeps per-cell totals from inflating on jittery sessions`() {
+        // A jittery in-app session: 4 fragments of ~30s each would previously
+        // bucket as 4 separate sessions (4+ minutes after per-cell rounding).
+        // Merged into one 3-minute session, the grid reports 3 minutes.
+        val t0 = at("2026-10-25", "09:59:30")
+        val events = listOf(
+            RawEvent("com.a", t0, RawEvent.ACTIVITY_RESUMED),
+            RawEvent("com.a", t0 + 30_000, RawEvent.ACTIVITY_PAUSED),
+            RawEvent("com.a", t0 + 31_000, RawEvent.ACTIVITY_RESUMED),
+            RawEvent("com.a", t0 + 60_000, RawEvent.ACTIVITY_PAUSED),
+            RawEvent("com.a", t0 + 61_000, RawEvent.ACTIVITY_RESUMED),
+            RawEvent("com.a", t0 + 90_000, RawEvent.ACTIVITY_PAUSED),
+            RawEvent("com.a", t0 + 91_000, RawEvent.ACTIVITY_RESUMED),
+            RawEvent("com.a", t0 + 120_000, RawEvent.ACTIVITY_PAUSED),
+        )
+        val grid = UsageLogic.bucketSessions(UsageLogic.pairSessions(events, endAt = t0 + 120_000), zone)
+        // 09:59:30-10:00:00 -> 1 minute in the 9 o'clock cell, 10:00:00-10:01:30
+        // -> 2 minutes in the 10 o'clock cell. Before the fragment merge the
+        // four jitter fragments would have rounded to 1+1+1+1=4 minutes.
+        assertEquals(1L, grid[6, 9])
+        assertEquals(2L, grid[6, 10])
+    }
+
+    @Test
+    fun `bucketSessions still rounds a cell with partial usage up to one minute`() {
+        val sessions = listOf(
+            ActivitySession("com.a", at("2026-10-25", "09:00:00"), at("2026-10-25", "09:00:30")),
+        )
+        val grid = UsageLogic.bucketSessions(sessions, zone)
+        assertEquals(1L, grid[6, 9])
+    }
+
+    @Test
     fun `sessionsInBucket matches only the overlapping hour`() {
         val sessions = listOf(
             ActivitySession("com.a", at("2026-10-25", "13:50:00"), at("2026-10-25", "14:10:00")),

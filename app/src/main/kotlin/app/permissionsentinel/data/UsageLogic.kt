@@ -6,6 +6,9 @@ package app.permissionsentinel.data
  */
 object UsageLogic {
 
+    /** Gaps at or below this are in-app Activity switch jitter, not real exits. */
+    private const val FRAGMENT_GAP_MS = 1_000L
+
     data class HeatmapPeak(
         val dayIndex: Int,
         val intervalIndex: Int,
@@ -30,6 +33,8 @@ object UsageLogic {
      * Pairs foreground lifecycle events into sessions.
      * A RESUMED opens (or switches) the current session; PAUSED/STOPPED from the same
      * package closes it. A still-open session at stream end is closed at [endAt].
+     * Same-package fragments separated by <=1s (in-app Activity switches) are merged,
+     * so session counts stay user-meaningful.
      */
     fun pairSessions(events: List<RawEvent>, endAt: Long): List<ActivitySession> {
         val sorted = events.sortedBy { it.timestamp }
@@ -56,18 +61,38 @@ object UsageLogic {
         current?.let { open ->
             if (open.end == Long.MIN_VALUE) out += open.copy(end = maxOf(endAt, open.start + 1))
         }
-        return out.filter { it.durationMs > 0 }
+        return mergeSamePackageFragments(out.filter { it.durationMs > 0 })
+    }
+
+    /** Joins adjacent sessions of one package separated by tiny gaps. */
+    private fun mergeSamePackageFragments(
+        sessions: List<ActivitySession>,
+    ): List<ActivitySession> {
+        val sorted = sessions.sortedBy { it.start }
+        val out = mutableListOf<ActivitySession>()
+        for (session in sorted) {
+            val last = out.lastOrNull()
+            if (last != null && last.packageName == session.packageName &&
+                session.start - last.end <= FRAGMENT_GAP_MS
+            ) {
+                out[out.size - 1] = last.copy(end = maxOf(last.end, session.end))
+            } else {
+                out += session
+            }
+        }
+        return out
     }
 
     /**
-     * Buckets sessions into a 7x24 minute grid. Sessions spanning multiple hours are
-     * split at hour boundaries. Days are 0=Monday..6=Sunday in [zone].
+     * Buckets sessions into a 7x24 grid of minutes. Sessions are split at hour
+     * boundaries, but accumulation is millisecond-exact and each cell rounds up
+     * once — per-slice rounding would inflate long-window totals by ~10%.
      */
     fun bucketSessions(
         sessions: List<ActivitySession>,
         zone: java.time.ZoneId,
     ): HeatmapGrid {
-        val grid = Array(7) { LongArray(24) }
+        val msGrid = Array(7) { LongArray(24) }
         for (s in sessions) {
             var cursor = s.start
             val end = s.end
@@ -77,11 +102,15 @@ object UsageLogic {
                     .toInstant().toEpochMilli()
                 val hourEnd = hourStart + 3_600_000L
                 val sliceEnd = minOf(end, hourEnd)
-                val minutes = (sliceEnd - cursor + 59_999L) / 60_000L
                 val dayIdx = (zdt.dayOfWeek.value - 1)
-                grid[dayIdx][zdt.hour] += minutes
+                msGrid[dayIdx][zdt.hour] += sliceEnd - cursor
                 cursor = sliceEnd
             }
+        }
+        val grid = Array(7) { day -> LongArray(24) { hour -> msGrid[day][hour] } }
+        for (day in 0..6) for (hour in 0..23) {
+            val ms = grid[day][hour]
+            grid[day][hour] = if (ms <= 0L) 0L else (ms + 59_999L) / 60_000L
         }
         return HeatmapGrid(grid)
     }

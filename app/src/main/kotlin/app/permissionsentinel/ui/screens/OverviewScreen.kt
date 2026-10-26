@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Mic
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,6 +92,7 @@ fun OverviewScreen(
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
     var selectedCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var showMetricInfo by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
     val context = LocalContext.current
     // The two system switches are independent; re-read both on every resume.
@@ -98,8 +102,14 @@ fun OverviewScreen(
         onPauseOrDispose { }
     }
     val watchEnabled = remember(resumeKey) { WatchAccessibility.isEnabled(context) }
-    val todaySessionCount = remember(state.sessions, zone) {
-        UsageLogic.sessionsToday(state.sessions, System.currentTimeMillis(), zone).size
+    val todayMinutes = remember(state.sessions, zone) {
+        UsageLogic.minutesToday(state.sessions, System.currentTimeMillis(), zone)
+    }
+    val updatedAt = remember(state.lastRefreshedAt) {
+        state.lastRefreshedAt.takeIf { it > 0 }?.let {
+            DateTimeFormatter.ofPattern("HH:mm:ss", Locale.getDefault())
+                .format(Instant.ofEpochMilli(it).atZone(zone))
+        }
     }
 
     PullToRefreshBox(
@@ -114,6 +124,7 @@ fun OverviewScreen(
                 .padding(top = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
+            // Title row: refresh button with the update time as small print.
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -125,6 +136,14 @@ fun OverviewScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f),
                 )
+                if (updatedAt != null) {
+                    Text(
+                        text = stringResource(R.string.updated_at, updatedAt),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
                 IconButton(
                     onClick = { vm.refresh() },
                     enabled = !state.refreshing,
@@ -136,95 +155,42 @@ fun OverviewScreen(
                     )
                 }
             }
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SourceBadge(
-                    text = if (state.usageGranted) {
-                        stringResource(R.string.source_standard_available)
-                    } else {
-                        stringResource(R.string.source_standard_unavailable)
-                    },
-                )
-                Spacer(Modifier.weight(1f))
-                val updatedAt = remember(state.lastRefreshedAt) {
-                    state.lastRefreshedAt.takeIf { it > 0 }?.let {
-                        DateTimeFormatter.ofPattern("HH:mm:ss", Locale.getDefault())
-                            .format(Instant.ofEpochMilli(it).atZone(zone))
-                    }
-                }
-                if (updatedAt != null) {
-                    Text(
-                        text = stringResource(R.string.updated_at, updatedAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+
+            // Missing-access hints. When everything is granted the header stays clean.
+            if (!state.usageGranted) {
+                SourceBadge(text = stringResource(R.string.source_standard_unavailable))
+                AccessWarningBanner()
+            }
+            if (!watchEnabled) {
+                WatchWarningBanner()
             }
 
             // Precisely scoped summary metrics.
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatCard(
-                        label = stringResource(R.string.stat_today_activity),
-                        value = stringResource(
-                            R.string.session_count_value,
-                            formatCount(todaySessionCount),
-                        ),
-                        support = stringResource(R.string.stat_today_activity_support),
-                        modifier = Modifier.weight(1f),
-                    )
-                    StatCard(
-                        label = stringResource(R.string.stat_apps),
-                        value = stringResource(
-                            R.string.app_count_value,
-                            formatCount(state.sensitiveApps.size),
-                        ),
-                        support = stringResource(R.string.stat_apps_support),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (!state.usageGranted) {
-                    AccessWarningBanner()
-                }
-                if (!watchEnabled) {
-                    WatchWarningBanner()
-                }
-                CameraLiveBanner(state)
-                MicLiveBanner(state)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard(
+                    label = stringResource(R.string.stat_today_activity),
+                    value = stringResource(
+                        R.string.stat_today_minutes_value,
+                        formatCount(todayMinutes.toInt()),
+                    ),
+                    support = stringResource(R.string.stat_today_activity_support),
+                    modifier = Modifier.weight(1f),
+                    onInfoClick = { showMetricInfo = true },
+                )
+                StatCard(
+                    label = stringResource(R.string.stat_apps),
+                    value = stringResource(
+                        R.string.app_count_value,
+                        formatCount(state.sensitiveApps.size),
+                    ),
+                    support = stringResource(R.string.stat_apps_support),
+                    modifier = Modifier.weight(1f),
+                )
             }
+            CameraLiveBanner(state)
+            MicLiveBanner(state)
 
-            // Activity heatmap.
-            Column(
-                Modifier.animateContentSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(R.string.heatmap_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    WindowRangeMenu(vm, state)
-                }
-                state.heatmap?.let { grid ->
-                    ActivityHeatmap(
-                        grid = grid,
-                        selected = selectedCell,
-                        onSelect = { selectedCell = it },
-                    )
-                    HeatmapPeakSummary(grid)
-                }
-                HeatmapLegend()
-                selectedCell?.let { (row, day) ->
-                    SelectedIntervalBar(state, row, day, zone, onOpenTimeline)
-                }
-            }
-
-            // Counts are declarations among the visible sensitive-app inventory.
+            // Permission declarations first: the always-available, audit-verified source.
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = stringResource(R.string.coverage_title),
@@ -245,6 +211,52 @@ fun OverviewScreen(
                             onClick = { onOpenApps(coverage.capability) },
                         )
                     }
+            }
+
+            // Foreground heatmap in a collapsible card; the peak line stays visible.
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .glassSurface(cornerRadius = 16.dp)
+                    .animateContentSize()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                var heatmapExpanded by rememberSaveable { mutableStateOf(false) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.heatmap_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.weight(1f),
+                    )
+                    WindowRangeMenu(vm, state)
+                    IconButton(onClick = { heatmapExpanded = !heatmapExpanded }) {
+                        Icon(
+                            imageVector = if (heatmapExpanded) Icons.Outlined.ExpandLess
+                            else Icons.Outlined.ExpandMore,
+                            contentDescription = if (heatmapExpanded) stringResource(R.string.collapse)
+                            else stringResource(R.string.expand),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                state.heatmap?.let { grid ->
+                    HeatmapPeakSummary(grid)
+                    AnimatedVisibility(visible = heatmapExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ActivityHeatmap(
+                                grid = grid,
+                                selected = selectedCell,
+                                onSelect = { selectedCell = it },
+                            )
+                            HeatmapLegend()
+                            selectedCell?.let { (row, day) ->
+                                SelectedIntervalBar(state, row, day, zone, onOpenTimeline)
+                            }
+                        }
+                    }
+                }
             }
 
             Row(
@@ -293,6 +305,21 @@ fun OverviewScreen(
 
             Spacer(Modifier.height(bottomInset))
         }
+    }
+
+    if (showMetricInfo) {
+        AlertDialog(
+            onDismissRequest = { showMetricInfo = false },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            title = { Text(stringResource(R.string.today_metric_info_title)) },
+            text = { Text(stringResource(R.string.today_metric_info_body)) },
+            confirmButton = {
+                TextButton(onClick = { showMetricInfo = false }) {
+                    Text(stringResource(R.string.confirm_read))
+                }
+            },
+        )
     }
 }
 
@@ -432,15 +459,15 @@ private fun MicLiveBanner(state: UiState) {
     }
 }
 
-/** "Last N days ⌄" control opening a 7/14/30-day range menu. */
+/** "Last N days" control opening a 7/14/30-day range menu. */
 @Composable
 private fun WindowRangeMenu(vm: SentinelViewModel, state: UiState) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Row(
             Modifier
-                .height(40.dp)
-                .glassSurface(cornerRadius = 20.dp)
+                .height(34.dp)
+                .glassSurface(cornerRadius = 17.dp)
                 .clickable { expanded = true }
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -463,7 +490,9 @@ private fun WindowRangeMenu(vm: SentinelViewModel, state: UiState) {
             expanded = expanded,
             onDismissRequest = { expanded = false },
             shape = RoundedCornerShape(16.dp),
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+            tonalElevation = 0.dp,
+            shadowElevation = 6.dp,
         ) {
             for (days in listOf(7, 14, 30)) {
                 DropdownMenuItem(

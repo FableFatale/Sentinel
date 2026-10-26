@@ -148,7 +148,9 @@ fun SentinelApp(vm: SentinelViewModel) {
     BackHandler(enabled = keyboardVisible) {
         focusManager.clearFocus(force = true)
     }
-    val bottomInset = if (keyboardVisible) 16.dp else 88.dp
+    // Bar: 64dp height + 12dp bottom padding + slack, so the last list item
+    // scrolls fully clear of the floating navigation.
+    val bottomInset = if (keyboardVisible) 16.dp else 100.dp
 
     fun selectTab(index: Int) {
         if (tab == index) return
@@ -251,13 +253,18 @@ private fun GlassBottomBar(
     val density = LocalDensity.current
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val shape = RoundedCornerShape(32.dp)
-    val tint = if (dark) Color(0xFF18181C).copy(alpha = 0.58f)
-    else Color(0xFFF8FAFC).copy(alpha = 0.60f)
-    val borderColor = Color.White.copy(alpha = if (dark) 0.20f else 0.56f)
+    // 85-92% frost: readable over any content, blur still reads through.
+    val tint = if (dark) Color(0xFF18181C).copy(alpha = 0.88f)
+    else Color(0xFFF8FAFC).copy(alpha = 0.90f)
+    val borderColor = if (dark) Color.White.copy(alpha = 0.20f)
+    else Color.Black.copy(alpha = 0.10f)
     val highlight = Color.White.copy(alpha = if (dark) 0.10f else 0.34f)
-    val selectedColor = if (dark) Color(0xFF3A3A40).copy(alpha = 0.78f)
-    else Color.White.copy(alpha = 0.76f)
+    val selectedColor = if (dark) Color(0xFF3A3A40).copy(alpha = 0.86f)
+    else Color.White.copy(alpha = 0.92f)
     val blurPx = with(density) { 14.dp.toPx() }
+    // RenderEffect needs API 31+; on older or driver-broken devices fall back
+    // to a solid (fully opaque) bar so text stays legible.
+    val blurSupported = android.os.Build.VERSION.SDK_INT >= 31
     var barOrigin by remember { mutableStateOf(Offset.Zero) }
 
     BoxWithConstraints(
@@ -276,15 +283,24 @@ private fun GlassBottomBar(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    renderEffect = BlurEffect(blurPx, blurPx, TileMode.Decal)
+                    if (blurSupported) {
+                        renderEffect = BlurEffect(blurPx, blurPx, TileMode.Decal)
+                    }
                 }
                 .drawBehind {
-                    translate(-barOrigin.x, -barOrigin.y) {
-                        drawLayer(contentLayer)
+                    if (blurSupported) {
+                        translate(-barOrigin.x, -barOrigin.y) {
+                            drawLayer(contentLayer)
+                        }
                     }
                 }
         )
-        Box(Modifier.fillMaxSize().background(tint))
+        // Without blur support the tint carries the whole job: make it solid.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(if (blurSupported) tint else if (dark) Color(0xFF18181C) else Color(0xFFF8FAFC))
+        )
 
         val itemWidth = (maxWidth - 12.dp) / tabs.size
         val selectedX by animateDpAsState(

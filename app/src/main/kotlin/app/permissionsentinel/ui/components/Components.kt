@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
@@ -81,6 +83,7 @@ fun StatCard(
     value: String,
     support: String,
     modifier: Modifier = Modifier,
+    onInfoClick: (() -> Unit)? = null,
 ) {
     Surface(
         modifier = modifier,
@@ -88,11 +91,28 @@ fun StatCard(
         color = MaterialTheme.colorScheme.surface,
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onInfoClick != null) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = stringResource(R.string.metric_info),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onInfoClick,
+                            ),
+                    )
+                }
+            }
             AnimatedValueText(
                 value = value,
                 style = MaterialTheme.typography.headlineLarge,
@@ -144,8 +164,8 @@ fun Modifier.bouncyPressScale(
 
 /**
  * Day-column heatmap per Figma spec: 7 weekday columns x [HeatmapDayIntervals.size]
- * time-interval rows. Cells show cumulative minutes so intensity is not
- * communicated by color alone.
+ * time-interval rows. Cells carry no in-cell numbers — the tap detail bar and
+ * the content description carry the minutes.
  */
 @Composable
 fun ActivityHeatmap(
@@ -240,17 +260,17 @@ fun ActivityHeatmap(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = minutes.toString(),
-                            fontSize = 10.sp,
-                            lineHeight = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = when {
-                                level >= 3 -> androidx.compose.ui.graphics.Color.White
-                                else -> MaterialTheme.colorScheme.onBackground
-                            },
-                            maxLines = 1,
-                        )
+                        // Numbers live in the tap detail bar only; cells stay clean.
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Outlined.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                // Peak cell is light blue in dark theme: dark tick wins contrast.
+                                tint = if (isDarkThemeLocal()) Color(0xFF0B1220)
+                                else Color.White,
+                            )
+                        }
                     }
                 }
             }

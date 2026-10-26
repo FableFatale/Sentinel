@@ -10,7 +10,13 @@
     <string name="source_standard_unavailable">Standard · usage access off</string>
     <string name="updated_at">Updated %1$s</string>
     <string name="stat_today_activity">Today</string>
-    <string name="stat_today_activity_support">Foreground sessions from system usage events</string>
+    <string name="stat_today_activity_support">Foreground sessions</string>
+    <string name="stat_today_minutes_value">%1$s min</string>
+    <string name="metric_info">About this metric</string>
+    <string name="today_metric_info_title">How today is counted</string>
+    <string name="today_metric_info_body">Minutes of foreground time from system usage events, summed per app. With split screen or floating windows several apps are foreground at once and each session counts, so the total can legitimately exceed wall-clock time. Sessions are split at hour boundaries and each heatmap cell rounds up once.</string>
+    <string name="expand">Expand heatmap</string>
+    <string name="collapse">Collapse heatmap</string>
     <string name="session_count_value">%1$s sessions</string>
     <string name="stat_apps">Sensitive-permission apps</string>
     <string name="stat_apps_support">Installed launchable apps that declare one</string>
@@ -22,7 +28,7 @@
     <string name="heatmap_hour_range">%1$d–%2$d h</string>
     <string name="heatmap_cell_content">%1$s, %2$d to %3$d hours, %4$d cumulative minutes</string>
     <string name="heatmap_peak_summary">Peak: %1$s %2$d:00–%3$d:00 · %4$d cumulative min</string>
-    <string name="legend_affordance">Cells show cumulative minutes</string>
+    <string name="legend_affordance">Tap a cell for details</string>
     <string name="less">Low</string>
     <string name="more">High</string>
 
