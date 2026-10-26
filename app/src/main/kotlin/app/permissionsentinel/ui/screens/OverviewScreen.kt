@@ -165,7 +165,8 @@ fun OverviewScreen(
                 WatchWarningBanner()
             }
 
-            // Precisely scoped summary metrics.
+            // Two compact metrics: foreground sessions (with semantics info) and
+            // the locally stored observation record count.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatCard(
                     label = stringResource(R.string.stat_today_activity),
@@ -178,12 +179,9 @@ fun OverviewScreen(
                     onInfoClick = { showMetricInfo = true },
                 )
                 StatCard(
-                    label = stringResource(R.string.stat_apps),
-                    value = stringResource(
-                        R.string.app_count_value,
-                        formatCount(state.sensitiveApps.size),
-                    ),
-                    support = stringResource(R.string.stat_apps_support),
+                    label = stringResource(R.string.stat_records),
+                    value = formatCount(state.recordCount),
+                    support = stringResource(R.string.stat_records_support),
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -211,6 +209,25 @@ fun OverviewScreen(
                             onClick = { onOpenApps(coverage.capability) },
                         )
                     }
+                // Explicit not-observable line closes the section (v2 structure).
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.clipboard_motion),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = stringResource(R.string.not_observable),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             // Foreground heatmap in a collapsible card; the peak line stays visible.

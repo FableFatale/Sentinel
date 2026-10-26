@@ -253,9 +253,9 @@ private fun GlassBottomBar(
     val density = LocalDensity.current
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val shape = RoundedCornerShape(32.dp)
-    // 85-92% frost: readable over any content, blur still reads through.
-    val tint = if (dark) Color(0xFF18181C).copy(alpha = 0.88f)
-    else Color(0xFFF8FAFC).copy(alpha = 0.90f)
+    // 85-92% frost on the theme surface: readable over any content, blur still
+    // reads through; the fallback path raises it to fully opaque.
+    val tint = MaterialTheme.colorScheme.surface.copy(alpha = if (dark) 0.88f else 0.90f)
     val borderColor = if (dark) Color.White.copy(alpha = 0.20f)
     else Color.Black.copy(alpha = 0.10f)
     val highlight = Color.White.copy(alpha = if (dark) 0.10f else 0.34f)
@@ -299,7 +299,7 @@ private fun GlassBottomBar(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(if (blurSupported) tint else if (dark) Color(0xFF18181C) else Color(0xFFF8FAFC))
+                .background(if (blurSupported) tint else MaterialTheme.colorScheme.surface)
         )
 
         val itemWidth = (maxWidth - 12.dp) / tabs.size

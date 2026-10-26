@@ -18,6 +18,8 @@
     <string name="expand">展开热力图</string>
     <string name="collapse">收起热力图</string>
     <string name="session_count_value">%1$s 次</string>
+    <string name="stat_records">本地保存记录</string>
+    <string name="stat_records_support">仅元数据，存于本机</string>
     <string name="stat_apps">敏感权限应用</string>
     <string name="stat_apps_support">已安装、可启动且声明敏感权限</string>
     <string name="app_count_value">%1$s 个</string>

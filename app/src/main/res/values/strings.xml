@@ -18,6 +18,8 @@
     <string name="expand">Expand heatmap</string>
     <string name="collapse">Collapse heatmap</string>
     <string name="session_count_value">%1$s sessions</string>
+    <string name="stat_records">Saved records</string>
+    <string name="stat_records_support">Metadata only, on this device</string>
     <string name="stat_apps">Sensitive-permission apps</string>
     <string name="stat_apps_support">Installed launchable apps that declare one</string>
     <string name="app_count_value">%1$s apps</string>
